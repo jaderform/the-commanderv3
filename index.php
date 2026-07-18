@@ -8,6 +8,54 @@
  */
 
 // ============================================
+// ROTEADOR DE CLOAKING POR DOMINIO (estilo White Rabbit)
+// ============================================
+// Se o acesso chegar por um DOMINIO DE CAMPANHA apontado para o COMMANDER
+// (via CNAME ou registro A), executamos o cloaking direto e encerramos ANTES
+// de carregar o painel/login. Assim o mesmo COMMANDER serve:
+//   - o painel, quando acessado pelo dominio do proprio COMMANDER;
+//   - a campanha (Safe/Offer), quando acessado por um dominio de campanha.
+// Precisa rodar antes do proteger.php para nao redirecionar visitantes ao login.
+
+/**
+ * Normaliza um dominio: remove protocolo, path, porta, "www." e caracteres invalidos.
+ */
+function commanderNormalizeDomain($domain) {
+    $d = strtolower(trim((string) $domain));
+    $d = preg_replace('#^https?://#', '', $d);
+    $d = preg_replace('#/.*$#', '', $d);
+    $d = preg_replace('/:\d+$/', '', $d);
+    $d = preg_replace('/^www\./', '', $d);
+    $d = preg_replace('/[^a-z0-9.\-]/', '', $d);
+    return $d;
+}
+
+/**
+ * Se o Host atual for um dominio configurado em alguma campanha, roda o
+ * motor de cloaking e encerra a execucao.
+ */
+function commanderMaybeRouteCampaignDomain() {
+    $host = commanderNormalizeDomain($_SERVER['HTTP_HOST'] ?? '');
+    if ($host === '') return;
+
+    $campaignsFile = __DIR__ . '/data/campaigns.json';
+    if (!is_file($campaignsFile)) return;
+
+    $all = json_decode((string) @file_get_contents($campaignsFile), true);
+    if (!is_array($all)) return;
+
+    foreach ($all as $c) {
+        $cd = commanderNormalizeDomain($c['domain'] ?? '');
+        if ($cd !== '' && $cd === $host) {
+            $GLOBALS['__CLOAK_CAMPAIGN'] = $c;
+            require __DIR__ . '/cloak-engine.php';
+            exit;
+        }
+    }
+}
+commanderMaybeRouteCampaignDomain();
+
+// ============================================
 // INTEGRAÇÃO COM SISTEMA DE LOGIN DA RAIZ
 // ============================================
 
@@ -111,6 +159,7 @@ if ($isLoggedIn && isset($_POST['ajax_action'])) {
                 'user_id' => $currentUserId, // Associa campanha ao usuario
                 'name' => $security->sanitizeInput($_POST['name'] ?? '', 'string'),
                 'slug' => $security->sanitizeInput($_POST['slug'] ?? '', 'alphanumeric'),
+                'domain' => commanderNormalizeDomain($_POST['domain'] ?? ''),
                 'white_url' => $security->sanitizeInput($_POST['white_url'] ?? '', 'url'),
                 'black_url' => $security->sanitizeInput($_POST['black_url'] ?? '', 'url'),
                 'white_method' => $_POST['white_method'] ?? 'redirect',
@@ -154,6 +203,8 @@ if ($isLoggedIn && isset($_POST['ajax_action'])) {
             }
             
             saveCampaign($campaignData);
+            // Gera/atualiza o tracker "live" usado pelo dominio da campanha
+            commanderWriteLiveTracker($campaignData);
             jsonResponse(['success' => true, 'campaign' => $campaignData]);
             break;
             
@@ -166,6 +217,7 @@ if ($isLoggedIn && isset($_POST['ajax_action'])) {
                     jsonResponse(['error' => 'Sem permissao para deletar esta campanha'], 403);
                 }
                 if (deleteCampaign($id)) {
+                    if ($campaign) commanderDeleteLiveTracker($campaign);
                     jsonResponse(['success' => true]);
                 }
             }
@@ -2077,6 +2129,53 @@ TRACKER_CODE;
     
     return $code;
 }
+
+/**
+ * Gera/atualiza o "live tracker" da campanha (pasta /live/{slug}.php).
+ * Esse arquivo e executado pelo cloak-engine.php quando o trafego chega
+ * pelo dominio apontado para o COMMANDER. Reutiliza exatamente o mesmo
+ * codigo do tracker de download, entao a protecao e identica.
+ */
+function commanderWriteLiveTracker($campaign) {
+    $slug = preg_replace('/[^a-zA-Z0-9_-]/', '', $campaign['slug'] ?? '');
+    if ($slug === '') return false;
+
+    $liveDir = __DIR__ . '/live';
+    if (!is_dir($liveDir)) {
+        @mkdir($liveDir, 0755, true);
+    }
+
+    // Garante execucao normal de PHP dentro de /live e desativa listagem
+    $htaccess = $liveDir . '/.htaccess';
+    if (!is_file($htaccess)) {
+        @file_put_contents($htaccess, "Options -Indexes\n");
+    }
+
+    $liveFile = $liveDir . '/' . $slug . '.php';
+    $domain = commanderNormalizeDomain($campaign['domain'] ?? '');
+
+    // Sem dominio configurado: remove o live tracker se existir
+    if ($domain === '') {
+        if (is_file($liveFile)) @unlink($liveFile);
+        return false;
+    }
+
+    if (!function_exists('generateTrackerCode')) return false;
+    $code = generateTrackerCode($campaign);
+    return @file_put_contents($liveFile, $code) !== false;
+}
+
+/**
+ * Remove o live tracker de uma campanha (usado ao excluir).
+ */
+function commanderDeleteLiveTracker($campaign) {
+    $slug = is_array($campaign) ? ($campaign['slug'] ?? '') : (string) $campaign;
+    $slug = preg_replace('/[^a-zA-Z0-9_-]/', '', $slug);
+    if ($slug === '') return;
+    $liveFile = __DIR__ . '/live/' . $slug . '.php';
+    if (is_file($liveFile)) @unlink($liveFile);
+}
+
 function generateHtaccessCode() {
     return <<<HTACCESS
 # COMMANDER V10.3 - Tracker .htaccess
@@ -4217,6 +4316,14 @@ HTACCESS;
                     <input type="text" name="slug" id="campaign-slug" class="form-control" placeholder="deixe vazio para gerar automaticamente">
                 </div>
                 
+                <div class="form-group">
+                    <label>Domínio da Campanha</label>
+                    <input type="text" name="domain" id="campaign-domain" class="form-control" placeholder="ex: go.seudominio.com">
+                    <small style="display:block;margin-top:6px;color:var(--muted);font-size:12px;">
+                        Este é o domínio usado no anúncio. Aponte-o para o COMMANDER (CNAME ou registro A) e adicione-o como domínio/alias na sua hospedagem apontando para esta pasta. O cloaking roda direto aqui, sem precisar baixar o tracker.
+                    </small>
+                </div>
+                
                 <div class="grid-2">
                     <div class="form-group">
                         <label>Plataforma</label>
@@ -5821,6 +5928,7 @@ function openCampaignModal(campaign = null) {
     document.getElementById('campaign-id').value = campaign?.id || '';
     document.getElementById('campaign-name').value = campaign?.name || '';
     document.getElementById('campaign-slug').value = campaign?.slug || '';
+    document.getElementById('campaign-domain').value = campaign?.domain || '';
     document.getElementById('campaign-platform').value = campaign?.platform || 'tiktok';
     document.getElementById('campaign-status').value = campaign?.status || 'active';
     document.getElementById('campaign-white-url').value = campaign?.white_url || '';
