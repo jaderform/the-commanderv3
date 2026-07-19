@@ -13,3 +13,10 @@ __v0_jsx-dev-runtime.ts
 node_modules
 .next/
 .DS_Store
+
+# COMMANDER runtime (regenerado na VPS, nao versionar)
+public/COMMANDERV3/cache/
+public/COMMANDERV3/logs/
+public/COMMANDERV3/data/access_logs/
+public/COMMANDERV3/data/webhook_logs/
+public/COMMANDERV3/**/*.lock
