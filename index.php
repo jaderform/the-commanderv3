@@ -137,6 +137,32 @@ function commanderCheckDomainStatus($domain, $commanderHost = '', $serverIp = ''
 }
 
 // ============================================
+// REGISTRO DE DOMINIOS (data/domains.json)
+// ============================================
+// Os dominios sao entidades proprias: o usuario cadastra e verifica na aba
+// Dominios, e o formulario de campanha oferece apenas os que estao ativos.
+
+function commanderDomainsFile() {
+    return __DIR__ . '/data/domains.json';
+}
+
+function commanderLoadDomains() {
+    $file = commanderDomainsFile();
+    if (!is_file($file)) return [];
+    $data = json_decode((string) @file_get_contents($file), true);
+    return is_array($data) ? $data : [];
+}
+
+function commanderSaveDomains($domains) {
+    $dir = __DIR__ . '/data';
+    if (!is_dir($dir)) @mkdir($dir, 0755, true);
+    return @file_put_contents(
+        commanderDomainsFile(),
+        json_encode(array_values($domains), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)
+    ) !== false;
+}
+
+// ============================================
 // INTEGRAÇÃO COM SISTEMA DE LOGIN DA RAIZ
 // ============================================
 
@@ -319,43 +345,104 @@ if ($isLoggedIn && isset($_POST['ajax_action'])) {
             jsonResponse(['campaigns' => $userCampaigns]);
             break;
             
-        case 'get_domains':
-            $allCampaigns = getCampaigns();
-            if ($isAdmin) {
-                $domCampaigns = $allCampaigns;
-            } else {
-                $domCampaigns = array_values(array_filter($allCampaigns, function($c) use ($currentUserId) {
-                    return ($c['user_id'] ?? 'default') === $currentUserId;
-                }));
+        case 'add_domain':
+            $newDomain = commanderNormalizeDomain($_POST['domain'] ?? '');
+            if ($newDomain === '' || strpos($newDomain, '.') === false) {
+                jsonResponse(['error' => 'Dominio invalido'], 400);
             }
+            $registry = commanderLoadDomains();
+            // Evita duplicados para o mesmo usuario
+            foreach ($registry as $d) {
+                if (($d['domain'] ?? '') === $newDomain && ($d['user_id'] ?? 'default') === $currentUserId) {
+                    jsonResponse(['error' => 'Este dominio ja foi adicionado'], 409);
+                }
+            }
+            $registry[] = [
+                'id'         => uniqid('dom_', true),
+                'user_id'    => $currentUserId,
+                'domain'     => $newDomain,
+                'status'     => 'pending',
+                'resolved'   => '',
+                'created_at' => date('c'),
+                'last_check' => null,
+            ];
+            commanderSaveDomains($registry);
+            jsonResponse(['success' => true, 'domain' => $newDomain]);
+            break;
 
-            // Alvo para o qual o dominio da campanha deve apontar:
-            // o proprio host do COMMANDER (onde este painel roda).
+        case 'delete_domain':
+            $domId = $_POST['domain_id'] ?? '';
+            $registry = commanderLoadDomains();
+            $registry = array_values(array_filter($registry, function($d) use ($domId, $currentUserId, $isAdmin) {
+                if (($d['id'] ?? '') !== $domId) return true;
+                // Só remove se pertencer ao usuario (ou admin)
+                return !($isAdmin || ($d['user_id'] ?? 'default') === $currentUserId);
+            }));
+            commanderSaveDomains($registry);
+            jsonResponse(['success' => true]);
+            break;
+
+        case 'verify_domain':
+        case 'get_domains':
             $commanderHost = commanderNormalizeDomain($_SERVER['HTTP_HOST'] ?? '');
             $serverIp = $_SERVER['SERVER_ADDR'] ?? gethostbyname($commanderHost);
 
-            $domains = [];
-            foreach ($domCampaigns as $c) {
-                $domain = commanderNormalizeDomain($c['domain'] ?? '');
-                if ($domain === '') continue;
-
-                $status = commanderCheckDomainStatus($domain, $commanderHost, $serverIp);
-                $domains[] = [
-                    'campaign_id' => $c['id'] ?? '',
-                    'campaign_name' => $c['name'] ?? '',
-                    'slug' => $c['slug'] ?? '',
-                    'domain' => $domain,
-                    'status' => $status['status'],
-                    'resolved' => $status['resolved'],
-                    'live_ready' => is_file(__DIR__ . '/live/' . preg_replace('/[^a-zA-Z0-9_-]/', '', $c['slug'] ?? '') . '.php'),
-                ];
+            $registry = commanderLoadDomains();
+            $targetId = $_POST['domain_id'] ?? '';  // usado por verify_domain (opcional)
+            // Mapa dominio -> nome da campanha que o usa
+            $domainToCampaign = [];
+            foreach (getCampaigns() as $c) {
+                $cd = commanderNormalizeDomain($c['domain'] ?? '');
+                if ($cd !== '') $domainToCampaign[$cd] = $c['name'] ?? '';
             }
 
+            $out = [];
+            $changed = false;
+            foreach ($registry as &$d) {
+                // Filtra por usuario
+                if (!$isAdmin && ($d['user_id'] ?? 'default') !== $currentUserId) continue;
+
+                // Rechecagem: sempre em get_domains; em verify_domain só o alvo (se informado)
+                $shouldCheck = ($action === 'get_domains') || ($targetId === '' || ($d['id'] ?? '') === $targetId);
+                if ($shouldCheck) {
+                    $status = commanderCheckDomainStatus($d['domain'], $commanderHost, $serverIp);
+                    $d['status'] = $status['status'];
+                    $d['resolved'] = $status['resolved'];
+                    $d['last_check'] = date('c');
+                    $changed = true;
+                }
+
+                $dom = commanderNormalizeDomain($d['domain']);
+                $out[] = [
+                    'id'          => $d['id'] ?? '',
+                    'domain'      => $dom,
+                    'status'      => $d['status'] ?? 'pending',
+                    'resolved'    => $d['resolved'] ?? '',
+                    'last_check'  => $d['last_check'] ?? null,
+                    'used_by'     => $domainToCampaign[$dom] ?? '',
+                ];
+            }
+            unset($d);
+            if ($changed) commanderSaveDomains($registry);
+
             jsonResponse([
-                'domains' => $domains,
+                'domains' => $out,
                 'commander_host' => $commanderHost,
                 'server_ip' => $serverIp,
             ]);
+            break;
+
+        case 'get_active_domains':
+            // Lista rapida (status em cache, sem rechecar) para o dropdown da campanha
+            $registry = commanderLoadDomains();
+            $active = [];
+            foreach ($registry as $d) {
+                if (!$isAdmin && ($d['user_id'] ?? 'default') !== $currentUserId) continue;
+                if (($d['status'] ?? '') === 'connected') {
+                    $active[] = commanderNormalizeDomain($d['domain']);
+                }
+            }
+            jsonResponse(['domains' => $active]);
             break;
             
         case 'get_stats':
@@ -3310,11 +3397,16 @@ HTACCESS;
             <div class="page-header">
                 <div>
                     <h1 class="page-title" style="color:#a855f7;"><i class="fas fa-globe" style="margin-right:10px;"></i>Domínios</h1>
-                    <p class="page-subtitle">Aponte seus domínios de campanha para o COMMANDER (sem baixar tracker)</p>
+                    <p class="page-subtitle">Cadastre seus domínios e aponte-os para o COMMANDER</p>
                 </div>
-                <button class="btn btn-primary btn-sm" onclick="openDomainHelpModal()">
-                    <i class="fas fa-circle-question"></i> Como apontar
-                </button>
+                <div style="display:flex;gap:8px;">
+                    <button class="btn btn-secondary btn-sm" onclick="openDomainHelpModal()">
+                        <i class="fas fa-circle-question"></i> Como apontar
+                    </button>
+                    <button class="btn btn-primary btn-sm" onclick="openAddDomainModal()">
+                        <i class="fas fa-plus"></i> Adicionar domínio
+                    </button>
+                </div>
             </div>
 
             <div class="card" style="margin-bottom:20px;">
@@ -3328,7 +3420,7 @@ HTACCESS;
                         <div id="commander-ip" style="font-size:16px;font-weight:600;color:var(--light);margin-top:4px;">-</div>
                     </div>
                     <div style="flex:1;min-width:220px;font-size:13px;color:var(--muted);line-height:1.5;">
-                        Cada domínio abaixo vem das suas campanhas. Depois de apontar o registro A para o IP do servidor, clique em <strong>Verificar</strong> &mdash; o SSL é emitido automaticamente na primeira visita.
+                        Clique em <strong>Adicionar domínio</strong>, aponte o registro A dele para o IP do servidor e clique em <strong>Verificar</strong>. Assim que ficar <strong>Ativo</strong>, ele aparece no dropdown ao criar/editar uma campanha.
                     </div>
                 </div>
             </div>
@@ -3393,20 +3485,19 @@ HTACCESS;
                             <thead>
                                 <tr>
                                     <th>Domínio</th>
-                                    <th>Campanha</th>
+                                    <th>Usado por</th>
                                     <th>Conexão</th>
                                     <th>Status</th>
-                                    <th>Motor</th>
                                     <th>Ações</th>
                                 </tr>
                             </thead>
                             <tbody id="domains-table">
                                 <tr>
-                                    <td colspan="6">
+                                    <td colspan="5">
                                         <div class="empty-state">
                                             <i class="fas fa-globe"></i>
                                             <h3>Nenhum domínio</h3>
-                                            <p>Defina o campo "Domínio da Campanha" ao criar/editar uma campanha</p>
+                                            <p>Clique em "Adicionar domínio" para cadastrar o primeiro</p>
                                         </div>
                                     </td>
                                 </tr>
@@ -4481,9 +4572,12 @@ HTACCESS;
                 
                 <div class="form-group">
                     <label>Domínio da Campanha</label>
-                    <input type="text" name="domain" id="campaign-domain" class="form-control" placeholder="ex: go.seudominio.com">
+                    <select name="domain" id="campaign-domain" class="form-control">
+                        <option value="">Selecione um domínio ativo...</option>
+                    </select>
                     <small style="display:block;margin-top:6px;color:var(--muted);font-size:12px;">
-                        Este é o domínio usado no anúncio. Aponte-o para o COMMANDER (CNAME ou registro A) e adicione-o como domínio/alias na sua hospedagem apontando para esta pasta. O cloaking roda direto aqui, sem precisar baixar o tracker.
+                        Aparecem aqui apenas os domínios <strong>ativos</strong> (apontados corretamente). Não vê o seu?
+                        <a href="#" onclick="switchPage('domains');closeModal('campaign-modal');return false;" style="color:var(--primary);">Adicione e verifique em Domínios</a>.
                     </small>
                 </div>
                 
@@ -4814,6 +4908,31 @@ HTACCESS;
 </div>
 
 <!-- Domain Help Modal (estilo White Rabbit) -->
+<div id="add-domain-modal" class="modal-overlay">
+    <div class="modal" style="max-width:480px;">
+        <div class="modal-header">
+            <h3 class="modal-title"><i class="fas fa-globe" style="color:#a855f7;margin-right:8px;"></i>Adicionar domínio</h3>
+            <button class="modal-close" onclick="closeModal('add-domain-modal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label>Domínio</label>
+                <input type="text" id="add-domain-input" class="form-control" placeholder="ex: oferta1.com" autocomplete="off"
+                       onkeydown="if(event.key==='Enter'&&!event.isComposing&&event.keyCode!==229){event.preventDefault();submitAddDomain();}">
+                <small style="display:block;margin-top:8px;color:var(--muted);font-size:12px;line-height:1.6;">
+                    Depois de adicionar, aponte o registro <strong>A</strong> dele para o IP
+                    <code id="add-domain-ip" style="color:var(--primary);">IP do servidor</code>
+                    e clique em <strong>Verificar</strong> na tabela. Recomendado usar a Cloudflare com a nuvem laranja (Proxied).
+                </small>
+            </div>
+        </div>
+        <div class="modal-footer" style="display:flex;gap:10px;justify-content:flex-end;padding:16px 20px;">
+            <button class="btn btn-secondary" onclick="closeModal('add-domain-modal')">Cancelar</button>
+            <button class="btn btn-primary" onclick="submitAddDomain()"><i class="fas fa-plus"></i> Adicionar</button>
+        </div>
+    </div>
+</div>
+
 <div id="domain-help-modal" class="modal-overlay">
     <div class="modal" style="max-width:560px;">
         <div class="modal-header">
@@ -6168,37 +6287,88 @@ function renderDomains() {
     const tbody = document.getElementById('domains-table');
 
     if (!domainsData.length) {
-        tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><i class="fas fa-globe"></i><h3>Nenhum domínio</h3><p>Defina o campo "Domínio da Campanha" ao criar/editar uma campanha</p></div></td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state"><i class="fas fa-globe"></i><h3>Nenhum domínio</h3><p>Clique em "Adicionar domínio" para cadastrar o primeiro</p></div></td></tr>';
         return;
     }
 
     const statusMap = {
-        connected: '<span class="badge badge-success"><i class="fas fa-check-circle"></i> Conectado</span>',
+        connected: '<span class="badge badge-success"><i class="fas fa-check-circle"></i> Ativo</span>',
         pending:   '<span class="badge badge-warning"><i class="fas fa-clock"></i> Pendente</span>',
         error:     '<span class="badge badge-danger"><i class="fas fa-times-circle"></i> Não resolve</span>'
     };
 
     tbody.innerHTML = domainsData.map(d => {
         const statusBadge = statusMap[d.status] || statusMap.pending;
-        const engine = d.live_ready
-            ? '<span class="badge badge-success"><i class="fas fa-bolt"></i> Ativo</span>'
-            : '<span class="badge badge-warning">Aguardando</span>';
         const resolved = d.resolved ? escapeHtml(d.resolved) : '<span style="color:var(--muted);">-</span>';
+        const usedBy = d.used_by
+            ? escapeHtml(d.used_by)
+            : '<span style="color:var(--muted);font-size:12px;">Nenhuma campanha</span>';
         return `
             <tr>
                 <td><a href="https://${escapeHtml(d.domain)}" target="_blank" rel="noopener" style="color:var(--primary);font-weight:600;">${escapeHtml(d.domain)}</a></td>
-                <td>${escapeHtml(d.campaign_name)} <br><code style="color:var(--muted);font-size:11px;">${escapeHtml(d.slug)}</code></td>
+                <td>${usedBy}</td>
                 <td style="font-size:12px;color:var(--muted);">${resolved}</td>
                 <td>${statusBadge}</td>
-                <td>${engine}</td>
                 <td>
                     <div class="actions">
-                        <button class="action-btn" onclick="loadDomains()" title="Verificar"><i class="fas fa-rotate"></i></button>
+                        <button class="action-btn" onclick="verifyDomain('${escapeHtml(d.id)}')" title="Verificar"><i class="fas fa-rotate"></i></button>
+                        <button class="action-btn" onclick="deleteDomain('${escapeHtml(d.id)}','${escapeHtml(d.domain)}')" title="Excluir"><i class="fas fa-trash"></i></button>
                     </div>
                 </td>
             </tr>
         `;
     }).join('');
+}
+
+// Abre o modal de adicionar dominio
+function openAddDomainModal() {
+    const input = document.getElementById('add-domain-input');
+    if (input) input.value = '';
+    const ip = document.getElementById('add-domain-ip');
+    if (ip) ip.textContent = commanderIp || 'IP do servidor';
+    openModal('add-domain-modal');
+}
+
+// Salva um novo dominio no registro
+async function submitAddDomain() {
+    const input = document.getElementById('add-domain-input');
+    const domain = (input?.value || '').trim();
+    if (!domain) { showToast('Digite um domínio', 'warning'); return; }
+
+    const result = await apiCall('add_domain', { domain });
+    if (result?.success) {
+        showToast('Domínio adicionado! Aponte o DNS e clique em Verificar.', 'success');
+        closeModal('add-domain-modal');
+        loadDomains();
+    } else {
+        showToast(result?.error || 'Erro ao adicionar domínio', 'error');
+    }
+}
+
+// Reverifica um dominio especifico
+async function verifyDomain(id) {
+    showToast('Verificando...', 'info');
+    const result = await apiCall('verify_domain', { domain_id: id });
+    if (result) {
+        domainsData = result.domains || domainsData;
+        renderDomains();
+        const d = domainsData.find(x => x.id === id);
+        if (d && d.status === 'connected') showToast('Domínio ativo!', 'success');
+        else if (d && d.status === 'error') showToast('Ainda não resolve. Confira o DNS.', 'warning');
+        else showToast('Ainda pendente. Aguarde a propagação do DNS.', 'warning');
+    }
+}
+
+// Remove um dominio do registro
+async function deleteDomain(id, domain) {
+    if (!confirm('Excluir o domínio "' + domain + '"? As campanhas que o usam precisarão de outro domínio.')) return;
+    const result = await apiCall('delete_domain', { domain_id: id });
+    if (result?.success) {
+        showToast('Domínio removido', 'success');
+        loadDomains();
+    } else {
+        showToast('Erro ao remover', 'error');
+    }
 }
 
 function openDomainHelpModal() {
@@ -6215,12 +6385,49 @@ function copyText(text) {
     );
 }
 
+// Preenche o dropdown de dominios da campanha apenas com dominios ativos.
+// Mantem o dominio atual da campanha selecionado mesmo se ainda nao estiver ativo.
+async function populateCampaignDomains(selected) {
+    const sel = document.getElementById('campaign-domain');
+    if (!sel) return;
+    sel.innerHTML = '<option value="">Selecione um domínio ativo...</option>';
+
+    const result = await apiCall('get_active_domains');
+    const domains = (result && result.domains) ? result.domains : [];
+
+    domains.forEach(d => {
+        const opt = document.createElement('option');
+        opt.value = d;
+        opt.textContent = d;
+        sel.appendChild(opt);
+    });
+
+    // Se a campanha ja tem um dominio salvo que nao esta na lista de ativos,
+    // adiciona ele assim mesmo (marcado) para nao perder o valor ao editar.
+    if (selected && !domains.includes(selected)) {
+        const opt = document.createElement('option');
+        opt.value = selected;
+        opt.textContent = selected + ' (inativo)';
+        sel.appendChild(opt);
+    }
+
+    sel.value = selected || '';
+
+    if (domains.length === 0 && !selected) {
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.disabled = true;
+        opt.textContent = 'Nenhum domínio ativo — adicione em Domínios';
+        sel.appendChild(opt);
+    }
+}
+
 function openCampaignModal(campaign = null) {
     document.getElementById('campaign-modal-title').textContent = campaign ? 'Editar Campanha' : 'Nova Campanha';
     document.getElementById('campaign-id').value = campaign?.id || '';
     document.getElementById('campaign-name').value = campaign?.name || '';
     document.getElementById('campaign-slug').value = campaign?.slug || '';
-    document.getElementById('campaign-domain').value = campaign?.domain || '';
+    populateCampaignDomains(campaign?.domain || '');
     document.getElementById('campaign-platform').value = campaign?.platform || 'tiktok';
     document.getElementById('campaign-status').value = campaign?.status || 'active';
     document.getElementById('campaign-white-url').value = campaign?.white_url || '';
