@@ -1017,19 +1017,9 @@ if (!isset($_POST['_detected'])) {
 <title>' . htmlspecialchars($vt[2]) . '</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#f5f5f5;min-height:100vh;display:flex;justify-content:center;align-items:center}
-.box{background:#fff;border-radius:4px;padding:30px 40px;text-align:center;box-shadow:0 2px 6px rgba(0,0,0,0.1);max-width:340px;width:90%}
-.spinner{width:32px;height:32px;border:3px solid #e5e5e5;border-top-color:#f6821f;border-radius:50%;margin:0 auto 16px;animation:spin .8s linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
-.title{font-size:15px;color:#333;font-weight:500;margin-bottom:6px}
-.sub{font-size:13px;color:#666}
+html,body{width:100%;height:100%;background:#ffffff}
 </style>
 </head><body>
-<div class="box">
-<div class="spinner"></div>
-<div class="title" id="vTitle">' . htmlspecialchars($vt[0]) . '</div>
-<div class="sub" id="vSub">' . htmlspecialchars($vt[1]) . '</div>
-</div>
 <input type="hidden" id="vAuto" value="' . ($verifyAuto ? '1' : '0') . '">
 <form id="f" method="POST" action="' . htmlspecialchars($currentUrl) . '">
 <input type="hidden" name="_detected" value="1">
