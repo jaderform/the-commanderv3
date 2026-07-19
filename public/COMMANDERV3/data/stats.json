@@ -1,0 +1,342 @@
+{
+    "total_clicks": 107233,
+    "total_blocks": 89156,
+    "total_passes": 18077,
+    "by_campaign": {
+        "unknown": {
+            "clicks": 12245,
+            "blocks": 12243,
+            "passes": 2,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_c8caa59de6809825": {
+            "clicks": 3284,
+            "blocks": 3278,
+            "passes": 6,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_b622a5c79706abec": {
+            "clicks": 2965,
+            "blocks": 2965,
+            "passes": 0,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_23c705b5a9db072d": {
+            "clicks": 327,
+            "blocks": 257,
+            "passes": 70,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_6e9c730eeed3a920": {
+            "clicks": 2974,
+            "blocks": 2912,
+            "passes": 62,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_a2e980fc02dde9ad": {
+            "clicks": 2574,
+            "blocks": 2574,
+            "passes": 0,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_1d8c35a6ad1a342d": {
+            "clicks": 3009,
+            "blocks": 3009,
+            "passes": 0,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_65cf7722c859f360": {
+            "clicks": 1902,
+            "blocks": 1902,
+            "passes": 0,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_75046cd67f7d90b2": {
+            "clicks": 2039,
+            "blocks": 2039,
+            "passes": 0,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_eb1dc02f2433b5f5": {
+            "clicks": 2687,
+            "blocks": 2687,
+            "passes": 0,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_91ad5d44b6e29adb": {
+            "clicks": 2366,
+            "blocks": 2366,
+            "passes": 0,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_52e97789cdfe7fe0": {
+            "clicks": 2187,
+            "blocks": 2187,
+            "passes": 0,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_e5877ee03cc27bf3": {
+            "clicks": 2836,
+            "blocks": 2754,
+            "passes": 82,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_d917726756467605": {
+            "clicks": 3050,
+            "blocks": 3045,
+            "passes": 5,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_1af4800edb383617": {
+            "clicks": 3253,
+            "blocks": 3250,
+            "passes": 3,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_5aa6d4a4c202e67d": {
+            "clicks": 492,
+            "blocks": 486,
+            "passes": 6,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_78ea7213fd7ce20f": {
+            "clicks": 3100,
+            "blocks": 3100,
+            "passes": 0,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_98e6df8925885289": {
+            "clicks": 2383,
+            "blocks": 2383,
+            "passes": 0,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_32158b7a9a8b4d35": {
+            "clicks": 2882,
+            "blocks": 2882,
+            "passes": 0,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_b93d2e639196989d": {
+            "clicks": 3163,
+            "blocks": 3163,
+            "passes": 0,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_0e1f81503469037f": {
+            "clicks": 3664,
+            "blocks": 3602,
+            "passes": 62,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_79221d6ec1f0b27b": {
+            "clicks": 3024,
+            "blocks": 3009,
+            "passes": 15,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_9f64a2ead64f8970": {
+            "clicks": 3340,
+            "blocks": 3309,
+            "passes": 31,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_25a1be8d9db12591": {
+            "clicks": 3768,
+            "blocks": 3768,
+            "passes": 0,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_0d1fff5f3cf571a2": {
+            "clicks": 49,
+            "blocks": 34,
+            "passes": 15,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_c50245f4288f6f9f": {
+            "clicks": 4379,
+            "blocks": 4223,
+            "passes": 156,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_45a3706e2dfa1517": {
+            "clicks": 10097,
+            "blocks": 5385,
+            "passes": 4712,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_45fb99197c6076d2": {
+            "clicks": 3107,
+            "blocks": 2959,
+            "passes": 148,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_0cdbe94a8ee43394": {
+            "clicks": 7443,
+            "blocks": 1297,
+            "passes": 6146,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_c07ce25eafcc28c9": {
+            "clicks": 5325,
+            "blocks": 1371,
+            "passes": 3954,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_4b5b0c4ff32f85f4": {
+            "clicks": 18,
+            "blocks": 5,
+            "passes": 13,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_b1a8827f6c129149": {
+            "clicks": 3231,
+            "blocks": 668,
+            "passes": 2563,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_aab379b9fff22846": {
+            "clicks": 70,
+            "blocks": 44,
+            "passes": 26,
+            "conversions": 0,
+            "revenue": 0
+        }
+    },
+    "by_date": {
+        "2026-05-20": {
+            "clicks": 2023,
+            "blocks": 1989,
+            "passes": 34
+        },
+        "2026-05-21": {
+            "clicks": 7286,
+            "blocks": 7063,
+            "passes": 223
+        },
+        "2026-05-22": {
+            "clicks": 9637,
+            "blocks": 7793,
+            "passes": 1844
+        },
+        "2026-05-23": {
+            "clicks": 10637,
+            "blocks": 7816,
+            "passes": 2821
+        },
+        "2026-05-24": {
+            "clicks": 7137,
+            "blocks": 6713,
+            "passes": 424
+        },
+        "2026-05-25": {
+            "clicks": 6495,
+            "blocks": 6484,
+            "passes": 11
+        },
+        "2026-05-26": {
+            "clicks": 7261,
+            "blocks": 7252,
+            "passes": 9
+        },
+        "2026-05-27": {
+            "clicks": 13288,
+            "blocks": 7196,
+            "passes": 6092
+        },
+        "2026-05-28": {
+            "clicks": 7231,
+            "blocks": 5274,
+            "passes": 1957
+        },
+        "2026-05-29": {
+            "clicks": 7264,
+            "blocks": 5230,
+            "passes": 2034
+        },
+        "2026-05-30": {
+            "clicks": 4567,
+            "blocks": 4550,
+            "passes": 17
+        },
+        "2026-05-31": {
+            "clicks": 4388,
+            "blocks": 4380,
+            "passes": 8
+        },
+        "2026-06-01": {
+            "clicks": 4593,
+            "blocks": 4593,
+            "passes": 0
+        },
+        "2026-06-02": {
+            "clicks": 4375,
+            "blocks": 4375,
+            "passes": 0
+        },
+        "2026-06-03": {
+            "clicks": 7293,
+            "blocks": 4744,
+            "passes": 2549
+        },
+        "2026-06-04": {
+            "clicks": 3758,
+            "blocks": 3704,
+            "passes": 54
+        }
+    },
+    "by_platform": {
+        "other": {
+            "clicks": 86592,
+            "blocks": 86508,
+            "passes": 84
+        },
+        "google": {
+            "clicks": 630,
+            "blocks": 172,
+            "passes": 458
+        },
+        "tiktok": {
+            "clicks": 19990,
+            "blocks": 2455,
+            "passes": 17535
+        },
+        "facebook": {
+            "clicks": 21,
+            "blocks": 21,
+            "passes": 0
+        }
+    }
+}

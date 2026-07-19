@@ -1,0 +1,12 @@
+{
+    "teste01@gmail.com": {
+        "bynet": {
+            "gateway": "bynet",
+            "enabled": true,
+            "token": "",
+            "webhook_secret": "",
+            "created_at": "2026-05-08 18:15:45",
+            "updated_at": "2026-05-08 18:15:45"
+        }
+    }
+}

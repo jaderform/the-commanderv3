@@ -1,0 +1,172 @@
+# COMMANDER V10.3 - .htaccess do Painel
+# ============================================
+
+# Habilita o mod_rewrite
+RewriteEngine On
+RewriteBase /COMMANDER/
+
+# ============================================
+# SEGURANÇA
+# ============================================
+
+# Permite acesso ao api.php
+RewriteCond %{REQUEST_FILENAME} -f
+RewriteRule ^api\.php$ - [L]
+
+# Bloqueia acesso a arquivos sensíveis
+<FilesMatch "\.(json|lock|log|bak|sql|config|ini|env)$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+# Bloqueia acesso a diretórios de dados
+<IfModule mod_rewrite.c>
+    RewriteRule ^data/ - [F,L]
+    RewriteRule ^logs/ - [F,L]
+    RewriteRule ^cache/ - [F,L]
+</IfModule>
+
+# Bloqueia acesso a arquivos PHP internos (exceto index.php e api.php)
+<FilesMatch "^(config|security|functions|integrations)\.php$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+# Desabilita listagem de diretórios
+Options -Indexes
+
+# Desabilita assinatura do servidor
+ServerSignature Off
+
+# ============================================
+# HEADERS DE SEGURANÇA
+# ============================================
+
+<IfModule mod_headers.c>
+    # Previne Clickjacking
+    Header always set X-Frame-Options "SAMEORIGIN"
+    
+    # Previne XSS
+    Header always set X-XSS-Protection "1; mode=block"
+    
+    # Previne MIME sniffing
+    Header always set X-Content-Type-Options "nosniff"
+    
+    # Referrer Policy
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    
+    # Content Security Policy
+    Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data: https:; connect-src 'self'"
+    
+    # Permissions Policy
+    Header always set Permissions-Policy "geolocation=(), microphone=(), camera=()"
+    
+    # Remove headers que revelam informações do servidor
+    Header unset X-Powered-By
+    Header unset Server
+</IfModule>
+
+# ============================================
+# FORÇA HTTPS (descomente em produção)
+# ============================================
+
+# <IfModule mod_rewrite.c>
+#     RewriteCond %{HTTPS} off
+#     RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+# </IfModule>
+
+# ============================================
+# COMPRESSÃO GZIP
+# ============================================
+
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html
+    AddOutputFilterByType DEFLATE text/css
+    AddOutputFilterByType DEFLATE text/javascript
+    AddOutputFilterByType DEFLATE application/javascript
+    AddOutputFilterByType DEFLATE application/json
+    AddOutputFilterByType DEFLATE application/xml
+    AddOutputFilterByType DEFLATE text/xml
+    AddOutputFilterByType DEFLATE text/plain
+</IfModule>
+
+# ============================================
+# CACHE DE ARQUIVOS ESTÁTICOS
+# ============================================
+
+<IfModule mod_expires.c>
+    ExpiresActive On
+    
+    # Imagens
+    ExpiresByType image/jpg "access plus 1 month"
+    ExpiresByType image/jpeg "access plus 1 month"
+    ExpiresByType image/gif "access plus 1 month"
+    ExpiresByType image/png "access plus 1 month"
+    ExpiresByType image/webp "access plus 1 month"
+    ExpiresByType image/svg+xml "access plus 1 month"
+    ExpiresByType image/x-icon "access plus 1 month"
+    
+    # CSS e JS
+    ExpiresByType text/css "access plus 1 week"
+    ExpiresByType application/javascript "access plus 1 week"
+    ExpiresByType text/javascript "access plus 1 week"
+    
+    # Fontes
+    ExpiresByType font/woff "access plus 1 month"
+    ExpiresByType font/woff2 "access plus 1 month"
+    ExpiresByType application/font-woff "access plus 1 month"
+    ExpiresByType application/font-woff2 "access plus 1 month"
+    
+    # HTML - sem cache
+    ExpiresByType text/html "access plus 0 seconds"
+</IfModule>
+
+# ============================================
+# PROTEÇÃO CONTRA ATAQUES
+# ============================================
+
+# Limita tamanho de requisição (10MB)
+LimitRequestBody 10485760
+
+# Bloqueia User-Agents maliciosos conhecidos
+<IfModule mod_rewrite.c>
+    RewriteCond %{HTTP_USER_AGENT} (havij|sqlmap|nikto|acunetix|nessus|w3af) [NC]
+    RewriteRule .* - [F,L]
+</IfModule>
+
+# Bloqueia métodos HTTP não utilizados
+<IfModule mod_rewrite.c>
+    RewriteCond %{REQUEST_METHOD} ^(TRACE|DELETE|TRACK|DEBUG) [NC]
+    RewriteRule .* - [F,L]
+</IfModule>
+
+# ============================================
+# CHARSET UTF-8
+# ============================================
+
+AddDefaultCharset UTF-8
+<IfModule mod_mime.c>
+    AddCharset UTF-8 .html .css .js .json .xml
+</IfModule>
+
+# ============================================
+# PHP SETTINGS (se permitido)
+# ============================================
+
+<IfModule mod_php8.c>
+    php_value upload_max_filesize 10M
+    php_value post_max_size 10M
+    php_value max_execution_time 60
+    php_value max_input_time 60
+    php_flag display_errors Off
+    php_flag log_errors On
+</IfModule>
+
+<IfModule mod_php.c>
+    php_value upload_max_filesize 10M
+    php_value post_max_size 10M
+    php_value max_execution_time 60
+    php_value max_input_time 60
+    php_flag display_errors Off
+    php_flag log_errors On
+</IfModule>

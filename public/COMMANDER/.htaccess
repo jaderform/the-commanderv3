@@ -1,0 +1,12 @@
+RewriteEngine On
+RewriteBase /COMMANDER/
+
+# Permite que o api.php seja acessado diretamente
+RewriteCond %{REQUEST_FILENAME} -f
+RewriteRule ^api\.php$ - [L]
+
+# Bloqueia arquivos sensíveis
+<FilesMatch "\.(json|lock|log)$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>

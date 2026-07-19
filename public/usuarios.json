@@ -1,0 +1,204 @@
+{
+    "adminjd@gmail.com": {
+        "senha": "Senha123",
+        "expira_em": "2099-12-31",
+        "bloqueado": false,
+        "nome": "Admin Jader",
+        "eh_admin": true,
+        "utm_cloaker_ativo": true
+    },
+    "alemaooerick4@gmail.com": {
+        "senha": "Alemao0596#",
+        "expira_em": "2026-06-04",
+        "bloqueado": false,
+        "nome": "Alemão",
+        "eh_admin": false,
+        "utm_cloaker_ativo": true
+    },
+    "rametfns5@outlook.com": {
+        "senha": "Ramet0596#",
+        "expira_em": "2026-04-08",
+        "bloqueado": true,
+        "nome": "Ramet",
+        "eh_admin": false,
+        "utm_cloaker_ativo": true
+    },
+    "bankaihigh15@gmail.com": {
+        "senha": "Bank0596#",
+        "expira_em": "2026-04-10",
+        "bloqueado": true,
+        "nome": "Bank",
+        "eh_admin": false,
+        "utm_cloaker_ativo": false
+    },
+    "lojaprontashopify31@gmail.com": {
+        "senha": "Loja0596#",
+        "expira_em": "2026-04-13",
+        "bloqueado": true,
+        "nome": "Loja",
+        "eh_admin": false,
+        "utm_cloaker_ativo": false
+    },
+    "tiago744002@gmail.com": {
+        "senha": "Thiago0596#",
+        "expira_em": "2026-04-16",
+        "bloqueado": true,
+        "nome": "Thiago",
+        "eh_admin": false,
+        "utm_cloaker_ativo": false
+    },
+    "thhiagobarros14@outlook.com": {
+        "senha": "Thiago0596#",
+        "expira_em": "2026-04-17",
+        "bloqueado": true,
+        "nome": "Thhiago",
+        "eh_admin": false,
+        "utm_cloaker_ativo": false
+    },
+    "Lucasmacedo5353@gmail.com": {
+        "senha": "Lucas0596#",
+        "expira_em": "2026-04-23",
+        "bloqueado": true,
+        "nome": "Lucas",
+        "eh_admin": false,
+        "utm_cloaker_ativo": false
+    },
+    "teste01@gmail.com": {
+        "senha": "Alterar0596#",
+        "expira_em": "2026-07-15",
+        "bloqueado": false,
+        "nome": "Teste",
+        "eh_admin": false,
+        "utm_cloaker_ativo": true
+    },
+    "carteldacontigencia@gmail.com": {
+        "nome": "Cartel",
+        "senha": "Cartel0596#",
+        "eh_admin": false,
+        "utm_cloaker_ativo": false,
+        "expira_em": "2026-04-26",
+        "bloqueado": true,
+        "criado_em": "2026-03-27 21:07:10",
+        "criado_por": "adminjd@gmail.com"
+    },
+    "jaihlson2020@gmail.com": {
+        "nome": "2020",
+        "senha": "20200596#",
+        "eh_admin": false,
+        "utm_cloaker_ativo": false,
+        "expira_em": "2026-04-26",
+        "bloqueado": true,
+        "criado_em": "2026-03-27 21:09:05",
+        "criado_por": "adminjd@gmail.com"
+    },
+    "viradanovo@gmail.com": {
+        "nome": "Virada",
+        "senha": "Virada0596#",
+        "eh_admin": false,
+        "utm_cloaker_ativo": false,
+        "expira_em": "2026-04-27",
+        "bloqueado": true,
+        "criado_em": "2026-03-28 03:03:51",
+        "criado_por": "adminjd@gmail.com"
+    },
+    "Mikesilvaa596@gmail.com": {
+        "nome": "Mike",
+        "senha": "Mike0596#",
+        "eh_admin": false,
+        "utm_cloaker_ativo": true,
+        "expira_em": "2026-05-07",
+        "bloqueado": false,
+        "criado_em": "2026-04-07 21:06:05",
+        "criado_por": "adminjd@gmail.com"
+    },
+    "neresraiane130@gmail.com": {
+        "nome": "Neres",
+        "senha": "Neres0596#",
+        "eh_admin": false,
+        "utm_cloaker_ativo": true,
+        "expira_em": "2026-05-08",
+        "bloqueado": false,
+        "criado_em": "2026-04-08 01:16:33",
+        "criado_por": "adminjd@gmail.com"
+    },
+    "modafemininaadora@gmail.com": {
+        "nome": "Moda",
+        "senha": "Moda0596#",
+        "eh_admin": false,
+        "utm_cloaker_ativo": true,
+        "expira_em": "2026-05-28",
+        "bloqueado": false,
+        "criado_em": "2026-04-28 20:52:15",
+        "criado_por": "adminjd@gmail.com"
+    },
+    "vbruk00@gmail.com": {
+        "nome": "vbruk",
+        "senha": "Vbru0596#",
+        "eh_admin": false,
+        "utm_cloaker_ativo": true,
+        "expira_em": "2026-06-02",
+        "bloqueado": false,
+        "criado_em": "2026-05-03 19:44:24",
+        "criado_por": "adminjd@gmail.com"
+    },
+    "deborahalc2002@gmail.com": {
+        "nome": "Debora",
+        "senha": "Debora0596#",
+        "eh_admin": false,
+        "utm_cloaker_ativo": true,
+        "expira_em": "2026-06-04",
+        "bloqueado": false,
+        "criado_em": "2026-05-05 18:08:51",
+        "criado_por": "adminjd@gmail.com"
+    },
+    "robsoncrusueads@gmail.com": {
+        "nome": "Robson",
+        "senha": "Robson0596#",
+        "eh_admin": false,
+        "utm_cloaker_ativo": true,
+        "expira_em": "2026-06-13",
+        "bloqueado": false,
+        "criado_em": "2026-05-14 17:02:09",
+        "criado_por": "adminjd@gmail.com"
+    },
+    "atarafitness@gmail.com": {
+        "nome": "Atara",
+        "senha": "Atara0596#",
+        "eh_admin": false,
+        "utm_cloaker_ativo": true,
+        "expira_em": "2026-06-13",
+        "bloqueado": false,
+        "criado_em": "2026-05-14 17:02:41",
+        "criado_por": "adminjd@gmail.com"
+    },
+    "pixel353on@outlook.com": {
+        "nome": "Pixel",
+        "senha": "Pixel0596#",
+        "eh_admin": false,
+        "utm_cloaker_ativo": true,
+        "expira_em": "2026-06-14",
+        "bloqueado": false,
+        "criado_em": "2026-05-15 01:34:58",
+        "criado_por": "adminjd@gmail.com"
+    },
+    "luaravalenca608@gmail.com": {
+        "nome": "Luara",
+        "senha": "Luara0596#",
+        "eh_admin": false,
+        "utm_cloaker_ativo": true,
+        "expira_em": "2026-08-01",
+        "bloqueado": false,
+        "criado_em": "2026-06-02 01:22:39",
+        "criado_por": "adminjd@gmail.com"
+    },
+    "Mateusousa.pereira2005@gmail.com": {
+        "nome": "Mateus",
+        "senha": "Mateus0596#",
+        "eh_admin": false,
+        "utm_cloaker_ativo": true,
+        "expira_em": "2026-07-02",
+        "bloqueado": false,
+        "criado_em": "2026-06-02 19:56:39",
+        "criado_por": "adminjd@gmail.com"
+    }
+}

@@ -1,0 +1,540 @@
+{
+    "total_clicks": 8289,
+    "total_blocks": 3105,
+    "total_passes": 5184,
+    "by_campaign": {
+        "unknown": {
+            "clicks": 226,
+            "blocks": 136,
+            "passes": 90,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_6d27c65f3b529201": {
+            "clicks": 45,
+            "blocks": 6,
+            "passes": 39,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_e10e4b61de08506f": {
+            "clicks": 240,
+            "blocks": 108,
+            "passes": 132,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_deb97cc2a118f91b": {
+            "clicks": 3,
+            "blocks": 3,
+            "passes": 0,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_fa57b6e0f0f113aa": {
+            "clicks": 165,
+            "blocks": 145,
+            "passes": 20,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_f11f6f359d339d20": {
+            "clicks": 2,
+            "blocks": 2,
+            "passes": 0,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_3f111a2a0573042a": {
+            "clicks": 2571,
+            "blocks": 17,
+            "passes": 2554,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_8f571e6f46abd9d4": {
+            "clicks": 144,
+            "blocks": 126,
+            "passes": 18,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_2d5b1257a22e24b1": {
+            "clicks": 3,
+            "blocks": 2,
+            "passes": 1,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_abb9e98e4fdd096e": {
+            "clicks": 5,
+            "blocks": 4,
+            "passes": 1,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_f16af251ec52177f": {
+            "clicks": 7,
+            "blocks": 7,
+            "passes": 0,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_fa3a482d6a0d684f": {
+            "clicks": 437,
+            "blocks": 104,
+            "passes": 333,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_de00d4a9030ceda6": {
+            "clicks": 392,
+            "blocks": 49,
+            "passes": 343,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_9088a86a18d23b1b": {
+            "clicks": 1,
+            "blocks": 1,
+            "passes": 0,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_a85189a3f70e68cf": {
+            "clicks": 2,
+            "blocks": 1,
+            "passes": 1,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_899a05e534cc7435": {
+            "clicks": 1,
+            "blocks": 1,
+            "passes": 0,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_9c0c1fb4133c6a7d": {
+            "clicks": 4,
+            "blocks": 4,
+            "passes": 0,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_322a63464a73e7b2": {
+            "clicks": 1,
+            "blocks": 1,
+            "passes": 0,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_a818fd944fcb40be": {
+            "clicks": 1,
+            "blocks": 1,
+            "passes": 0,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_829ddadb7a5a3616": {
+            "clicks": 1,
+            "blocks": 1,
+            "passes": 0,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_afe2a220e335b372": {
+            "clicks": 1,
+            "blocks": 0,
+            "passes": 1,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_5ff64fe86f5c6606": {
+            "clicks": 5,
+            "blocks": 5,
+            "passes": 0,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_f6cc031c2768cbf2": {
+            "clicks": 3,
+            "blocks": 3,
+            "passes": 0,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_5db6458cccc656e6": {
+            "clicks": 309,
+            "blocks": 147,
+            "passes": 162,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_f40a3fcc7677ab37": {
+            "clicks": 26,
+            "blocks": 6,
+            "passes": 20,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_4c06b5f588c3e83b": {
+            "clicks": 2,
+            "blocks": 2,
+            "passes": 0,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_27d572a5bdede171": {
+            "clicks": 1,
+            "blocks": 1,
+            "passes": 0,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_f9233b50b9d5cd1e": {
+            "clicks": 1,
+            "blocks": 1,
+            "passes": 0,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_50ce070097f66890": {
+            "clicks": 2,
+            "blocks": 2,
+            "passes": 0,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_cd96606c74ae6c46": {
+            "clicks": 1,
+            "blocks": 1,
+            "passes": 0,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_eb0c02b954c810b5": {
+            "clicks": 1,
+            "blocks": 1,
+            "passes": 0,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_a9f5473369969785": {
+            "clicks": 146,
+            "blocks": 129,
+            "passes": 17,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_e67ef26b372f56b8": {
+            "clicks": 1,
+            "blocks": 1,
+            "passes": 0,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_7a4ba820bedfa42e": {
+            "clicks": 1103,
+            "blocks": 100,
+            "passes": 1003,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_1007862a6769bb52": {
+            "clicks": 156,
+            "blocks": 141,
+            "passes": 15,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_84b25c252c275d1e": {
+            "clicks": 211,
+            "blocks": 87,
+            "passes": 124,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_5be1f004bf64e736": {
+            "clicks": 131,
+            "blocks": 108,
+            "passes": 23,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_71e154f5ddfada67": {
+            "clicks": 22,
+            "blocks": 5,
+            "passes": 17,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_bd24c03acf721c4e": {
+            "clicks": 164,
+            "blocks": 61,
+            "passes": 103,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_f6220c1889438dfc": {
+            "clicks": 195,
+            "blocks": 176,
+            "passes": 19,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_76f7fd8fcf024989": {
+            "clicks": 148,
+            "blocks": 144,
+            "passes": 4,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_ef7c0e786e3386fd": {
+            "clicks": 182,
+            "blocks": 171,
+            "passes": 11,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_f3454fe480a3ce9b": {
+            "clicks": 153,
+            "blocks": 103,
+            "passes": 50,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_f4b8537aa41a4f69": {
+            "clicks": 205,
+            "blocks": 151,
+            "passes": 54,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_fa41913a0a3257c5": {
+            "clicks": 397,
+            "blocks": 388,
+            "passes": 9,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_3c347606e7dc6aa4": {
+            "clicks": 66,
+            "blocks": 64,
+            "passes": 2,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_769aff73d78a6450": {
+            "clicks": 128,
+            "blocks": 123,
+            "passes": 5,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_35ba279a6c601d6a": {
+            "clicks": 42,
+            "blocks": 42,
+            "passes": 0,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_bf1f29c8c01702e2": {
+            "clicks": 89,
+            "blocks": 89,
+            "passes": 0,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_9c02ae4d996d24cf": {
+            "clicks": 39,
+            "blocks": 36,
+            "passes": 3,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_b36b41949d9c3c80": {
+            "clicks": 33,
+            "blocks": 30,
+            "passes": 3,
+            "conversions": 0,
+            "revenue": 0
+        },
+        "camp_c77339b6a8c8d9d9": {
+            "clicks": 75,
+            "blocks": 68,
+            "passes": 7,
+            "conversions": 0,
+            "revenue": 0
+        }
+    },
+    "by_date": {
+        "2026-05-05": {
+            "clicks": 2787,
+            "blocks": 94,
+            "passes": 2693
+        },
+        "2026-05-06": {
+            "clicks": 1526,
+            "blocks": 117,
+            "passes": 1409
+        },
+        "2026-05-07": {
+            "clicks": 941,
+            "blocks": 259,
+            "passes": 682
+        },
+        "2026-05-08": {
+            "clicks": 302,
+            "blocks": 116,
+            "passes": 186
+        },
+        "2026-05-09": {
+            "clicks": 161,
+            "blocks": 138,
+            "passes": 23
+        },
+        "2026-05-10": {
+            "clicks": 95,
+            "blocks": 88,
+            "passes": 7
+        },
+        "2026-05-11": {
+            "clicks": 336,
+            "blocks": 311,
+            "passes": 25
+        },
+        "2026-05-12": {
+            "clicks": 540,
+            "blocks": 423,
+            "passes": 117
+        },
+        "2026-05-14": {
+            "clicks": 63,
+            "blocks": 61,
+            "passes": 2
+        },
+        "2026-05-15": {
+            "clicks": 243,
+            "blocks": 233,
+            "passes": 10
+        },
+        "2026-05-16": {
+            "clicks": 107,
+            "blocks": 104,
+            "passes": 3
+        },
+        "2026-05-17": {
+            "clicks": 140,
+            "blocks": 137,
+            "passes": 3
+        },
+        "2026-05-18": {
+            "clicks": 97,
+            "blocks": 92,
+            "passes": 5
+        },
+        "2026-05-19": {
+            "clicks": 98,
+            "blocks": 96,
+            "passes": 2
+        },
+        "2026-05-20": {
+            "clicks": 70,
+            "blocks": 70,
+            "passes": 0
+        },
+        "2026-05-21": {
+            "clicks": 82,
+            "blocks": 80,
+            "passes": 2
+        },
+        "2026-05-22": {
+            "clicks": 69,
+            "blocks": 69,
+            "passes": 0
+        },
+        "2026-05-23": {
+            "clicks": 67,
+            "blocks": 67,
+            "passes": 0
+        },
+        "2026-05-24": {
+            "clicks": 73,
+            "blocks": 73,
+            "passes": 0
+        },
+        "2026-05-25": {
+            "clicks": 53,
+            "blocks": 52,
+            "passes": 1
+        },
+        "2026-05-26": {
+            "clicks": 67,
+            "blocks": 65,
+            "passes": 2
+        },
+        "2026-05-27": {
+            "clicks": 44,
+            "blocks": 41,
+            "passes": 3
+        },
+        "2026-05-28": {
+            "clicks": 24,
+            "blocks": 23,
+            "passes": 1
+        },
+        "2026-05-29": {
+            "clicks": 38,
+            "blocks": 36,
+            "passes": 2
+        },
+        "2026-05-30": {
+            "clicks": 80,
+            "blocks": 76,
+            "passes": 4
+        },
+        "2026-05-31": {
+            "clicks": 43,
+            "blocks": 43,
+            "passes": 0
+        },
+        "2026-06-01": {
+            "clicks": 42,
+            "blocks": 40,
+            "passes": 2
+        },
+        "2026-06-02": {
+            "clicks": 30,
+            "blocks": 30,
+            "passes": 0
+        },
+        "2026-06-03": {
+            "clicks": 71,
+            "blocks": 71,
+            "passes": 0
+        }
+    },
+    "by_platform": {
+        "other": {
+            "clicks": 2948,
+            "blocks": 2850,
+            "passes": 98
+        },
+        "tiktok": {
+            "clicks": 3869,
+            "blocks": 98,
+            "passes": 3771
+        },
+        "google": {
+            "clicks": 1471,
+            "blocks": 156,
+            "passes": 1315
+        },
+        "facebook": {
+            "clicks": 1,
+            "blocks": 1,
+            "passes": 0
+        }
+    }
+}
