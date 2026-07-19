@@ -55,6 +55,48 @@ function commanderMaybeRouteCampaignDomain() {
 }
 commanderMaybeRouteCampaignDomain();
 
+/**
+ * Verifica, via DNS, se o dominio da campanha aponta para o COMMANDER.
+ * Retorna 'connected' (aponta certo), 'pending' (nao aponta ainda) ou
+ * 'error' (dominio nao resolve).
+ */
+function commanderCheckDomainStatus($domain, $commanderHost, $serverIp) {
+    $domain = commanderNormalizeDomain($domain);
+    $result = ['status' => 'pending', 'resolved' => ''];
+    if ($domain === '') { $result['status'] = 'error'; return $result; }
+
+    // Tenta resolver CNAME primeiro
+    $cname = '';
+    if (function_exists('dns_get_record')) {
+        $records = @dns_get_record($domain, DNS_CNAME);
+        if (is_array($records)) {
+            foreach ($records as $r) {
+                if (!empty($r['target'])) { $cname = commanderNormalizeDomain($r['target']); break; }
+            }
+        }
+    }
+    if ($cname !== '' && $commanderHost !== '' && $cname === $commanderHost) {
+        $result['status'] = 'connected';
+        $result['resolved'] = $cname . ' (CNAME)';
+        return $result;
+    }
+
+    // Tenta resolver por IP (registro A)
+    $ip = @gethostbyname($domain);
+    if ($ip && $ip !== $domain) {
+        $result['resolved'] = $ip;
+        if ($serverIp && $ip === $serverIp) {
+            $result['status'] = 'connected';
+        } else {
+            $result['status'] = 'pending';
+        }
+        return $result;
+    }
+
+    $result['status'] = 'error';
+    return $result;
+}
+
 // ============================================
 // INTEGRAÇÃO COM SISTEMA DE LOGIN DA RAIZ
 // ============================================
@@ -236,6 +278,45 @@ if ($isLoggedIn && isset($_POST['ajax_action'])) {
                 $userCampaigns = array_values($userCampaigns); // Reindexar
             }
             jsonResponse(['campaigns' => $userCampaigns]);
+            break;
+            
+        case 'get_domains':
+            $allCampaigns = getCampaigns();
+            if ($isAdmin) {
+                $domCampaigns = $allCampaigns;
+            } else {
+                $domCampaigns = array_values(array_filter($allCampaigns, function($c) use ($currentUserId) {
+                    return ($c['user_id'] ?? 'default') === $currentUserId;
+                }));
+            }
+
+            // Alvo para o qual o dominio da campanha deve apontar:
+            // o proprio host do COMMANDER (onde este painel roda).
+            $commanderHost = commanderNormalizeDomain($_SERVER['HTTP_HOST'] ?? '');
+            $serverIp = $_SERVER['SERVER_ADDR'] ?? gethostbyname($commanderHost);
+
+            $domains = [];
+            foreach ($domCampaigns as $c) {
+                $domain = commanderNormalizeDomain($c['domain'] ?? '');
+                if ($domain === '') continue;
+
+                $status = commanderCheckDomainStatus($domain, $commanderHost, $serverIp);
+                $domains[] = [
+                    'campaign_id' => $c['id'] ?? '',
+                    'campaign_name' => $c['name'] ?? '',
+                    'slug' => $c['slug'] ?? '',
+                    'domain' => $domain,
+                    'status' => $status['status'],
+                    'resolved' => $status['resolved'],
+                    'live_ready' => is_file(__DIR__ . '/live/' . preg_replace('/[^a-zA-Z0-9_-]/', '', $c['slug'] ?? '') . '.php'),
+                ];
+            }
+
+            jsonResponse([
+                'domains' => $domains,
+                'commander_host' => $commanderHost,
+                'server_ip' => $serverIp,
+            ]);
             break;
             
         case 'get_stats':
@@ -2997,6 +3078,11 @@ HTACCESS;
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a href="#domains" class="nav-link" data-page="domains" style="color: #a855f7;">
+                        <i class="fas fa-globe"></i> Domínios
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a href="#analytics" class="nav-link" data-page="analytics">
                         <i class="fas fa-chart-bar"></i> Analytics
                     </a>
@@ -3192,6 +3278,65 @@ HTACCESS;
                                             <i class="fas fa-bullhorn"></i>
                                             <h3>Nenhuma campanha</h3>
                                             <p>Crie sua primeira campanha para comecar</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Domains Page -->
+        <div id="page-domains" class="page" style="display:none;">
+            <div class="page-header">
+                <div>
+                    <h1 class="page-title" style="color:#a855f7;"><i class="fas fa-globe" style="margin-right:10px;"></i>Domínios</h1>
+                    <p class="page-subtitle">Aponte seus domínios de campanha para o COMMANDER (sem baixar tracker)</p>
+                </div>
+                <button class="btn btn-primary btn-sm" onclick="openDomainHelpModal()">
+                    <i class="fas fa-circle-question"></i> Como apontar
+                </button>
+            </div>
+
+            <div class="card" style="margin-bottom:20px;">
+                <div class="card-body" style="display:flex;gap:24px;flex-wrap:wrap;align-items:center;">
+                    <div>
+                        <div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">Servidor do COMMANDER</div>
+                        <div id="commander-host" style="font-size:16px;font-weight:600;color:var(--light);margin-top:4px;">-</div>
+                    </div>
+                    <div>
+                        <div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">IP do servidor (registro A)</div>
+                        <div id="commander-ip" style="font-size:16px;font-weight:600;color:var(--light);margin-top:4px;">-</div>
+                    </div>
+                    <div style="flex:1;min-width:220px;font-size:13px;color:var(--muted);line-height:1.5;">
+                        Cada domínio abaixo vem das suas campanhas. Depois de apontar o DNS, adicione o domínio como alias na sua hospedagem apontando para esta pasta e clique em <strong>Verificar</strong>.
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-body">
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Domínio</th>
+                                    <th>Campanha</th>
+                                    <th>Aponta para</th>
+                                    <th>Status DNS</th>
+                                    <th>Motor</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="domains-table">
+                                <tr>
+                                    <td colspan="6">
+                                        <div class="empty-state">
+                                            <i class="fas fa-globe"></i>
+                                            <h3>Nenhum domínio</h3>
+                                            <p>Defina o campo "Domínio da Campanha" ao criar/editar uma campanha</p>
                                         </div>
                                     </td>
                                 </tr>
@@ -4650,6 +4795,68 @@ HTACCESS;
     </div>
 </div>
 
+<!-- Domain Help Modal (estilo White Rabbit) -->
+<div id="domain-help-modal" class="modal-overlay">
+    <div class="modal" style="max-width:560px;">
+        <div class="modal-header">
+            <h3 class="modal-title"><i class="fas fa-globe" style="color:#a855f7;margin-right:8px;"></i>Como apontar seu domínio</h3>
+            <button class="modal-close" onclick="closeModal('domain-help-modal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p style="color:var(--muted);font-size:14px;line-height:1.6;margin-bottom:20px;">
+                O domínio que você aponta para o COMMANDER é o link usado no anúncio. O cloaking roda direto no servidor &mdash; você não precisa baixar nenhum tracker.
+            </p>
+
+            <div style="display:flex;gap:12px;margin-bottom:18px;">
+                <div style="width:26px;height:26px;border-radius:50%;background:#a855f7;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0;">1</div>
+                <div>
+                    <strong style="color:var(--light);">Acesse o painel de DNS do seu domínio.</strong>
+                    <p style="color:var(--muted);font-size:13px;margin-top:4px;line-height:1.5;">Entre no provedor onde registrou o domínio e localize "Registros DNS" ou "Gerenciamento de DNS".</p>
+                </div>
+            </div>
+
+            <div style="display:flex;gap:12px;margin-bottom:18px;">
+                <div style="width:26px;height:26px;border-radius:50%;background:#a855f7;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0;">2</div>
+                <div style="flex:1;">
+                    <strong style="color:var(--light);">Crie o registro apontando para o COMMANDER.</strong>
+                    <p style="color:var(--muted);font-size:13px;margin-top:4px;margin-bottom:10px;line-height:1.5;">
+                        Recomendado: <strong>registro A</strong> com o IP do servidor (mais confiável em hospedagem compartilhada). Em subdomínios, você pode usar CNAME.
+                    </p>
+                    <div style="display:flex;align-items:center;gap:8px;background:var(--darker);border-radius:8px;padding:10px;margin-bottom:8px;">
+                        <span style="font-size:12px;color:var(--muted);width:60px;">Tipo A</span>
+                        <code id="dns-a-value" style="flex:1;color:var(--primary);font-size:13px;">-</code>
+                        <button class="btn btn-sm" onclick="copyText(document.getElementById('dns-a-value').textContent)"><i class="fas fa-copy"></i></button>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:8px;background:var(--darker);border-radius:8px;padding:10px;">
+                        <span style="font-size:12px;color:var(--muted);width:60px;">CNAME</span>
+                        <code id="dns-cname-value" style="flex:1;color:var(--primary);font-size:13px;">-</code>
+                        <button class="btn btn-sm" onclick="copyText(document.getElementById('dns-cname-value').textContent)"><i class="fas fa-copy"></i></button>
+                    </div>
+                </div>
+            </div>
+
+            <div style="display:flex;gap:12px;margin-bottom:18px;">
+                <div style="width:26px;height:26px;border-radius:50%;background:#a855f7;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0;">3</div>
+                <div>
+                    <strong style="color:var(--light);">Adicione o domínio na sua hospedagem.</strong>
+                    <p style="color:var(--muted);font-size:13px;margin-top:4px;line-height:1.5;">No cPanel, adicione o domínio como <strong>Alias / Domínio Adicional</strong> apontando para a pasta do COMMANDER. Esse passo é necessário em hospedagem compartilhada.</p>
+                </div>
+            </div>
+
+            <div style="display:flex;gap:12px;">
+                <div style="width:26px;height:26px;border-radius:50%;background:#a855f7;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0;">4</div>
+                <div>
+                    <strong style="color:var(--light);">Volte aqui e clique em Verificar.</strong>
+                    <p style="color:var(--muted);font-size:13px;margin-top:4px;line-height:1.5;">A propagação de DNS pode levar alguns minutos. Quando o status ficar <span style="color:var(--success);">Conectado</span>, sua campanha está no ar.</p>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-primary" onclick="closeModal('domain-help-modal')">Entendi</button>
+        </div>
+    </div>
+</div>
+
 <!-- Whitelist Modal -->
 <div id="whitelist-modal" class="modal-overlay">
     <div class="modal" style="max-width:400px;">
@@ -4767,6 +4974,7 @@ document.querySelectorAll('.nav-link[data-page]').forEach(link => {
         // Load data
         if (page === 'dashboard') loadStats();
         if (page === 'campaigns') loadCampaigns();
+        if (page === 'domains') loadDomains();
         if (page === 'analytics') initAnalytics();
         if (page === 'sales') initSales();
         if (page === 'gateways') initGateways();
@@ -5921,6 +6129,77 @@ function renderCampaigns() {
             </tr>
         `;
     }).join('');
+}
+
+// ===== Dominios =====
+let domainsData = [];
+let commanderHost = '';
+let commanderIp = '';
+
+async function loadDomains() {
+    const result = await apiCall('get_domains');
+    if (!result) return;
+    domainsData = result.domains || [];
+    commanderHost = result.commander_host || '';
+    commanderIp = result.server_ip || '';
+
+    document.getElementById('commander-host').textContent = commanderHost || '-';
+    document.getElementById('commander-ip').textContent = commanderIp || '-';
+    document.getElementById('dns-a-value').textContent = commanderIp || '(IP do servidor)';
+    document.getElementById('dns-cname-value').textContent = commanderHost || '(host do commander)';
+
+    renderDomains();
+}
+
+function renderDomains() {
+    const tbody = document.getElementById('domains-table');
+
+    if (!domainsData.length) {
+        tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><i class="fas fa-globe"></i><h3>Nenhum domínio</h3><p>Defina o campo "Domínio da Campanha" ao criar/editar uma campanha</p></div></td></tr>';
+        return;
+    }
+
+    const statusMap = {
+        connected: '<span class="badge badge-success"><i class="fas fa-check-circle"></i> Conectado</span>',
+        pending:   '<span class="badge badge-warning"><i class="fas fa-clock"></i> Pendente</span>',
+        error:     '<span class="badge badge-danger"><i class="fas fa-times-circle"></i> Não resolve</span>'
+    };
+
+    tbody.innerHTML = domainsData.map(d => {
+        const statusBadge = statusMap[d.status] || statusMap.pending;
+        const engine = d.live_ready
+            ? '<span class="badge badge-success"><i class="fas fa-bolt"></i> Ativo</span>'
+            : '<span class="badge badge-warning">Aguardando</span>';
+        const resolved = d.resolved ? escapeHtml(d.resolved) : '<span style="color:var(--muted);">-</span>';
+        return `
+            <tr>
+                <td><a href="https://${escapeHtml(d.domain)}" target="_blank" rel="noopener" style="color:var(--primary);font-weight:600;">${escapeHtml(d.domain)}</a></td>
+                <td>${escapeHtml(d.campaign_name)} <br><code style="color:var(--muted);font-size:11px;">${escapeHtml(d.slug)}</code></td>
+                <td style="font-size:12px;color:var(--muted);">${resolved}</td>
+                <td>${statusBadge}</td>
+                <td>${engine}</td>
+                <td>
+                    <div class="actions">
+                        <button class="action-btn" onclick="loadDomains()" title="Verificar"><i class="fas fa-rotate"></i></button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function openDomainHelpModal() {
+    document.getElementById('dns-a-value').textContent = commanderIp || '(IP do servidor)';
+    document.getElementById('dns-cname-value').textContent = commanderHost || '(host do commander)';
+    openModal('domain-help-modal');
+}
+
+function copyText(text) {
+    if (!text) return;
+    navigator.clipboard.writeText(text).then(
+        () => showToast('Copiado!', 'success'),
+        () => showToast('Não foi possível copiar', 'error')
+    );
 }
 
 function openCampaignModal(campaign = null) {
