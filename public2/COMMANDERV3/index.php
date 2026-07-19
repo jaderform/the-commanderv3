@@ -8,12 +8,166 @@
  */
 
 // ============================================
+// ROTEADOR DE CLOAKING POR DOMINIO (estilo White Rabbit)
+// ============================================
+// Se o acesso chegar por um DOMINIO DE CAMPANHA apontado para o COMMANDER
+// (via CNAME ou registro A), executamos o cloaking direto e encerramos ANTES
+// de carregar o painel/login. Assim o mesmo COMMANDER serve:
+//   - o painel, quando acessado pelo dominio do proprio COMMANDER;
+//   - a campanha (Safe/Offer), quando acessado por um dominio de campanha.
+// Precisa rodar antes do proteger.php para nao redirecionar visitantes ao login.
+
+/**
+ * Normaliza um dominio: remove protocolo, path, porta, "www." e caracteres invalidos.
+ */
+function commanderNormalizeDomain($domain) {
+    $d = strtolower(trim((string) $domain));
+    $d = preg_replace('#^https?://#', '', $d);
+    $d = preg_replace('#/.*$#', '', $d);
+    $d = preg_replace('/:\d+$/', '', $d);
+    $d = preg_replace('/^www\./', '', $d);
+    $d = preg_replace('/[^a-z0-9.\-]/', '', $d);
+    return $d;
+}
+
+/**
+ * Se o Host atual for um dominio configurado em alguma campanha, roda o
+ * motor de cloaking e encerra a execucao.
+ */
+function commanderMaybeRouteCampaignDomain() {
+    $host = commanderNormalizeDomain($_SERVER['HTTP_HOST'] ?? '');
+    if ($host === '') return;
+
+    // Ping de verificacao: se o dominio for acessado com ?__cmdr_ping=1, o
+    // COMMANDER responde com uma assinatura. Se o painel conseguir ler essa
+    // assinatura ao consultar o dominio, e prova de que o trafego chega ate
+    // aqui (mesmo passando pela Cloudflare com proxy laranja ativo).
+    if (isset($_GET['__cmdr_ping'])) {
+        header('Content-Type: text/plain; charset=utf-8');
+        header('Cache-Control: no-store');
+        echo 'COMMANDER-LIVE:' . $host;
+        exit;
+    }
+
+    $campaignsFile = __DIR__ . '/data/campaigns.json';
+    if (!is_file($campaignsFile)) return;
+
+    $all = json_decode((string) @file_get_contents($campaignsFile), true);
+    if (!is_array($all)) return;
+
+    foreach ($all as $c) {
+        $cd = commanderNormalizeDomain($c['domain'] ?? '');
+        if ($cd !== '' && $cd === $host) {
+            $GLOBALS['__CLOAK_CAMPAIGN'] = $c;
+            require __DIR__ . '/cloak-engine.php';
+            exit;
+        }
+    }
+}
+commanderMaybeRouteCampaignDomain();
+
+/**
+ * Verifica, via HTTP, se o dominio da campanha realmente chega ate o COMMANDER.
+ *
+ * Faz uma requisicao para https://{dominio}/?__cmdr_ping=1 e confere se a
+ * resposta contem a assinatura "COMMANDER-LIVE". Esse metodo funciona mesmo
+ * com a Cloudflare na frente (proxy laranja), porque o teste segue o mesmo
+ * caminho do visitante real ate o servidor de origem.
+ *
+ * Retorna:
+ *  - 'connected'  : assinatura recebida (dominio ativo e apontando certo)
+ *  - 'pending'    : dominio responde, mas ainda nao chega ao COMMANDER
+ *  - 'error'      : dominio nao resolve / sem resposta
+ * Em 'resolved' indica se esta protegido pela Cloudflare.
+ */
+function commanderCheckDomainStatus($domain, $commanderHost = '', $serverIp = '') {
+    $domain = commanderNormalizeDomain($domain);
+    $result = ['status' => 'pending', 'resolved' => ''];
+    if ($domain === '') { $result['status'] = 'error'; return $result; }
+
+    // Se o dominio nem resolve no DNS, e erro direto.
+    $ip = @gethostbyname($domain);
+    if (!$ip || $ip === $domain) {
+        $result['status'] = 'error';
+        return $result;
+    }
+
+    if (!function_exists('curl_init')) {
+        // Sem cURL nao da pra testar via HTTP; assume pendente.
+        $result['resolved'] = $ip;
+        return $result;
+    }
+
+    // Tenta HTTPS e, em fallback, HTTP.
+    foreach (['https', 'http'] as $scheme) {
+        $ch = curl_init($scheme . '://' . $domain . '/?__cmdr_ping=1');
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HEADER         => true,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_MAXREDIRS      => 3,
+            CURLOPT_TIMEOUT        => 8,
+            CURLOPT_CONNECTTIMEOUT => 5,
+            CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_SSL_VERIFYHOST => false,
+            CURLOPT_USERAGENT      => 'COMMANDER-DomainCheck/1.0',
+        ]);
+        $raw = curl_exec($ch);
+        $err = curl_errno($ch);
+        curl_close($ch);
+
+        if ($err !== 0 || $raw === false) continue;
+
+        // Detecta Cloudflare pelos headers da resposta.
+        $viaCloudflare = (stripos($raw, 'server: cloudflare') !== false)
+            || (stripos($raw, 'cf-ray:') !== false);
+
+        if (strpos($raw, 'COMMANDER-LIVE') !== false) {
+            $result['status'] = 'connected';
+            $result['resolved'] = $viaCloudflare ? 'Cloudflare (protegido)' : 'Direto';
+            return $result;
+        }
+
+        // Respondeu algo, mas nao e o COMMANDER: aponta pra outro lugar.
+        $result['status'] = 'pending';
+        $result['resolved'] = $viaCloudflare ? 'Cloudflare (aguardando origem)' : 'Aponta para outro servidor';
+    }
+
+    return $result;
+}
+
+// ============================================
+// REGISTRO DE DOMINIOS (data/domains.json)
+// ============================================
+// Os dominios sao entidades proprias: o usuario cadastra e verifica na aba
+// Dominios, e o formulario de campanha oferece apenas os que estao ativos.
+
+function commanderDomainsFile() {
+    return __DIR__ . '/data/domains.json';
+}
+
+function commanderLoadDomains() {
+    $file = commanderDomainsFile();
+    if (!is_file($file)) return [];
+    $data = json_decode((string) @file_get_contents($file), true);
+    return is_array($data) ? $data : [];
+}
+
+function commanderSaveDomains($domains) {
+    $dir = __DIR__ . '/data';
+    if (!is_dir($dir)) @mkdir($dir, 0755, true);
+    return @file_put_contents(
+        commanderDomainsFile(),
+        json_encode(array_values($domains), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)
+    ) !== false;
+}
+
+// ============================================
 // INTEGRAÇÃO COM SISTEMA DE LOGIN DA RAIZ
 // ============================================
 
-// Inclui o sistema de protecao da raiz
+// Inclui o sistema de protecao da raiz (pasta public, um nivel acima).
 // Isso verifica se o usuario esta logado, se o dispositivo eh autorizado, etc.
-// Caminho para o proteger.php na raiz (public_html)
 require_once dirname(__DIR__) . '/proteger.php'; // ../proteger.php
 
 // Agora temos acesso a $GLOBALS['usuario_logado'] com:
@@ -58,6 +212,12 @@ $loginError = '';
 $usuarioLogado = $usuario;
 $currentUserId = $usuarioLogado['email'] ?? 'default';
 $isAdmin = $usuarioLogado['eh_admin'] ?? false;
+
+// Usado pelo front-end (JS) para saber quem esta logado.
+$loggedUser = [
+    'username' => $usuarioLogado['username'] ?? ($usuarioLogado['email'] ?? 'default'),
+    'is_admin' => $isAdmin,
+];
 
 // Processa logout - redireciona para logout da raiz
 if (isset($_GET['logout'])) {
@@ -111,6 +271,7 @@ if ($isLoggedIn && isset($_POST['ajax_action'])) {
                 'user_id' => $currentUserId, // Associa campanha ao usuario
                 'name' => $security->sanitizeInput($_POST['name'] ?? '', 'string'),
                 'slug' => $security->sanitizeInput($_POST['slug'] ?? '', 'alphanumeric'),
+                'domain' => commanderNormalizeDomain($_POST['domain'] ?? ''),
                 'white_url' => $security->sanitizeInput($_POST['white_url'] ?? '', 'url'),
                 'black_url' => $security->sanitizeInput($_POST['black_url'] ?? '', 'url'),
                 'white_method' => $_POST['white_method'] ?? 'redirect',
@@ -154,6 +315,8 @@ if ($isLoggedIn && isset($_POST['ajax_action'])) {
             }
             
             saveCampaign($campaignData);
+            // Gera/atualiza o tracker "live" usado pelo dominio da campanha
+            commanderWriteLiveTracker($campaignData);
             jsonResponse(['success' => true, 'campaign' => $campaignData]);
             break;
             
@@ -166,6 +329,7 @@ if ($isLoggedIn && isset($_POST['ajax_action'])) {
                     jsonResponse(['error' => 'Sem permissao para deletar esta campanha'], 403);
                 }
                 if (deleteCampaign($id)) {
+                    if ($campaign) commanderDeleteLiveTracker($campaign);
                     jsonResponse(['success' => true]);
                 }
             }
@@ -184,6 +348,106 @@ if ($isLoggedIn && isset($_POST['ajax_action'])) {
                 $userCampaigns = array_values($userCampaigns); // Reindexar
             }
             jsonResponse(['campaigns' => $userCampaigns]);
+            break;
+            
+        case 'add_domain':
+            $newDomain = commanderNormalizeDomain($_POST['domain'] ?? '');
+            if ($newDomain === '' || strpos($newDomain, '.') === false) {
+                jsonResponse(['error' => 'Dominio invalido'], 400);
+            }
+            $registry = commanderLoadDomains();
+            // Evita duplicados para o mesmo usuario
+            foreach ($registry as $d) {
+                if (($d['domain'] ?? '') === $newDomain && ($d['user_id'] ?? 'default') === $currentUserId) {
+                    jsonResponse(['error' => 'Este dominio ja foi adicionado'], 409);
+                }
+            }
+            $registry[] = [
+                'id'         => uniqid('dom_', true),
+                'user_id'    => $currentUserId,
+                'domain'     => $newDomain,
+                'status'     => 'pending',
+                'resolved'   => '',
+                'created_at' => date('c'),
+                'last_check' => null,
+            ];
+            commanderSaveDomains($registry);
+            jsonResponse(['success' => true, 'domain' => $newDomain]);
+            break;
+
+        case 'delete_domain':
+            $domId = $_POST['domain_id'] ?? '';
+            $registry = commanderLoadDomains();
+            $registry = array_values(array_filter($registry, function($d) use ($domId, $currentUserId, $isAdmin) {
+                if (($d['id'] ?? '') !== $domId) return true;
+                // Só remove se pertencer ao usuario (ou admin)
+                return !($isAdmin || ($d['user_id'] ?? 'default') === $currentUserId);
+            }));
+            commanderSaveDomains($registry);
+            jsonResponse(['success' => true]);
+            break;
+
+        case 'verify_domain':
+        case 'get_domains':
+            $commanderHost = commanderNormalizeDomain($_SERVER['HTTP_HOST'] ?? '');
+            $serverIp = $_SERVER['SERVER_ADDR'] ?? gethostbyname($commanderHost);
+
+            $registry = commanderLoadDomains();
+            $targetId = $_POST['domain_id'] ?? '';  // usado por verify_domain (opcional)
+            // Mapa dominio -> nome da campanha que o usa
+            $domainToCampaign = [];
+            foreach (getCampaigns() as $c) {
+                $cd = commanderNormalizeDomain($c['domain'] ?? '');
+                if ($cd !== '') $domainToCampaign[$cd] = $c['name'] ?? '';
+            }
+
+            $out = [];
+            $changed = false;
+            foreach ($registry as &$d) {
+                // Filtra por usuario
+                if (!$isAdmin && ($d['user_id'] ?? 'default') !== $currentUserId) continue;
+
+                // Rechecagem: sempre em get_domains; em verify_domain só o alvo (se informado)
+                $shouldCheck = ($action === 'get_domains') || ($targetId === '' || ($d['id'] ?? '') === $targetId);
+                if ($shouldCheck) {
+                    $status = commanderCheckDomainStatus($d['domain'], $commanderHost, $serverIp);
+                    $d['status'] = $status['status'];
+                    $d['resolved'] = $status['resolved'];
+                    $d['last_check'] = date('c');
+                    $changed = true;
+                }
+
+                $dom = commanderNormalizeDomain($d['domain']);
+                $out[] = [
+                    'id'          => $d['id'] ?? '',
+                    'domain'      => $dom,
+                    'status'      => $d['status'] ?? 'pending',
+                    'resolved'    => $d['resolved'] ?? '',
+                    'last_check'  => $d['last_check'] ?? null,
+                    'used_by'     => $domainToCampaign[$dom] ?? '',
+                ];
+            }
+            unset($d);
+            if ($changed) commanderSaveDomains($registry);
+
+            jsonResponse([
+                'domains' => $out,
+                'commander_host' => $commanderHost,
+                'server_ip' => $serverIp,
+            ]);
+            break;
+
+        case 'get_active_domains':
+            // Lista rapida (status em cache, sem rechecar) para o dropdown da campanha
+            $registry = commanderLoadDomains();
+            $active = [];
+            foreach ($registry as $d) {
+                if (!$isAdmin && ($d['user_id'] ?? 'default') !== $currentUserId) continue;
+                if (($d['status'] ?? '') === 'connected') {
+                    $active[] = commanderNormalizeDomain($d['domain']);
+                }
+            }
+            jsonResponse(['domains' => $active]);
             break;
             
         case 'get_stats':
@@ -399,28 +663,6 @@ if ($isLoggedIn && isset($_POST['ajax_action'])) {
             $days = (int) ($_POST['days'] ?? 30);
             cleanOldLogs($days);
             jsonResponse(['success' => true]);
-            break;
-            
-        case 'download_tracker':
-            $campaignId = $_POST['campaign_id'] ?? '';
-            $campaign = getCampaignById($campaignId);
-            
-            if (!$campaign) {
-                jsonResponse(['error' => 'Campanha nao encontrada'], 404);
-            }
-            
-            // Verifica permissao
-            if (!$isAdmin && ($campaign['user_id'] ?? '') !== $currentUserId) {
-                jsonResponse(['error' => 'Sem permissao para baixar esta campanha'], 403);
-            }
-            
-            $trackerCode = generateTrackerCode($campaign);
-            jsonResponse(['code' => $trackerCode, 'filename' => 'index.php']);
-            break;
-            
-        case 'download_htaccess':
-            $htaccessCode = generateHtaccessCode();
-            jsonResponse(['code' => $htaccessCode, 'filename' => '.htaccess']);
             break;
             
         // ============================================
@@ -823,7 +1065,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;b
             "nl":["Controleren of de site veilig is","Dit duurt slechts enkele seconden..."],
             "ru":["Проверка безопасности сайта","Это займет всего несколько секунд..."],
             "tr":["Sitenin guvenli olup olmadigi kontrol ediliyor","Bu yalnizca birkac saniye surecektir..."],
-            "ar":["جار التحقق من امان الموقع","لن يستغرق هذا سوى بضع ثوان..."],
+            "ar":["جار التحقق من امان الموق��","لن يستغرق هذا سوى بضع ثوان..."],
             "ja":["サイトの安全性を確認しています","これには数秒しかかかりません..."],
             "zh":["正在检查网站是否安全","这只需要几秒钟..."]
         };
@@ -2077,6 +2319,53 @@ TRACKER_CODE;
     
     return $code;
 }
+
+/**
+ * Gera/atualiza o "live tracker" da campanha (pasta /live/{slug}.php).
+ * Esse arquivo e executado pelo cloak-engine.php quando o trafego chega
+ * pelo dominio apontado para o COMMANDER. Reutiliza exatamente o mesmo
+ * codigo do tracker de download, entao a protecao e identica.
+ */
+function commanderWriteLiveTracker($campaign) {
+    $slug = preg_replace('/[^a-zA-Z0-9_-]/', '', $campaign['slug'] ?? '');
+    if ($slug === '') return false;
+
+    $liveDir = __DIR__ . '/live';
+    if (!is_dir($liveDir)) {
+        @mkdir($liveDir, 0755, true);
+    }
+
+    // Garante execucao normal de PHP dentro de /live e desativa listagem
+    $htaccess = $liveDir . '/.htaccess';
+    if (!is_file($htaccess)) {
+        @file_put_contents($htaccess, "Options -Indexes\n");
+    }
+
+    $liveFile = $liveDir . '/' . $slug . '.php';
+    $domain = commanderNormalizeDomain($campaign['domain'] ?? '');
+
+    // Sem dominio configurado: remove o live tracker se existir
+    if ($domain === '') {
+        if (is_file($liveFile)) @unlink($liveFile);
+        return false;
+    }
+
+    if (!function_exists('generateTrackerCode')) return false;
+    $code = generateTrackerCode($campaign);
+    return @file_put_contents($liveFile, $code) !== false;
+}
+
+/**
+ * Remove o live tracker de uma campanha (usado ao excluir).
+ */
+function commanderDeleteLiveTracker($campaign) {
+    $slug = is_array($campaign) ? ($campaign['slug'] ?? '') : (string) $campaign;
+    $slug = preg_replace('/[^a-zA-Z0-9_-]/', '', $slug);
+    if ($slug === '') return;
+    $liveFile = __DIR__ . '/live/' . $slug . '.php';
+    if (is_file($liveFile)) @unlink($liveFile);
+}
+
 function generateHtaccessCode() {
     return <<<HTACCESS
 # COMMANDER V10.3 - Tracker .htaccess
@@ -2898,6 +3187,11 @@ HTACCESS;
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a href="#domains" class="nav-link" data-page="domains" style="color: #a855f7;">
+                        <i class="fas fa-globe"></i> Domínios
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a href="#analytics" class="nav-link" data-page="analytics">
                         <i class="fas fa-chart-bar"></i> Analytics
                     </a>
@@ -3093,6 +3387,122 @@ HTACCESS;
                                             <i class="fas fa-bullhorn"></i>
                                             <h3>Nenhuma campanha</h3>
                                             <p>Crie sua primeira campanha para comecar</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Domains Page -->
+        <div id="page-domains" class="page" style="display:none;">
+            <div class="page-header">
+                <div>
+                    <h1 class="page-title" style="color:#a855f7;"><i class="fas fa-globe" style="margin-right:10px;"></i>Domínios</h1>
+                    <p class="page-subtitle">Cadastre seus domínios e aponte-os para o COMMANDER</p>
+                </div>
+                <div style="display:flex;gap:8px;">
+                    <button class="btn btn-secondary btn-sm" onclick="openDomainHelpModal()">
+                        <i class="fas fa-circle-question"></i> Como apontar
+                    </button>
+                    <button class="btn btn-primary btn-sm" onclick="openAddDomainModal()">
+                        <i class="fas fa-plus"></i> Adicionar domínio
+                    </button>
+                </div>
+            </div>
+
+            <div class="card" style="margin-bottom:20px;">
+                <div class="card-body" style="display:flex;gap:24px;flex-wrap:wrap;align-items:center;">
+                    <div>
+                        <div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">Servidor do COMMANDER</div>
+                        <div id="commander-host" style="font-size:16px;font-weight:600;color:var(--light);margin-top:4px;">-</div>
+                    </div>
+                    <div>
+                        <div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">IP do servidor (registro A)</div>
+                        <div id="commander-ip" style="font-size:16px;font-weight:600;color:var(--light);margin-top:4px;">-</div>
+                    </div>
+                    <div style="flex:1;min-width:220px;font-size:13px;color:var(--muted);line-height:1.5;">
+                        Clique em <strong>Adicionar domínio</strong>, aponte o registro A dele para o IP do servidor e clique em <strong>Verificar</strong>. Assim que ficar <strong>Ativo</strong>, ele aparece no dropdown ao criar/editar uma campanha.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Primeiros passos -->
+            <div class="card" style="margin-bottom:20px;">
+                <div class="card-header">
+                    <h3 class="card-title"><i class="fas fa-list-check" style="margin-right:8px;color:#a855f7;"></i>Como colocar um domínio no ar (3 passos)</h3>
+                </div>
+                <div class="card-body">
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;">
+                        <!-- Passo 1 -->
+                        <div style="padding:16px;background:var(--surface);border-radius:10px;border-top:3px solid #a855f7;">
+                            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+                                <span style="background:#a855f7;color:#fff;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;">1</span>
+                                <strong style="color:var(--light);">Aponte o DNS do domínio</strong>
+                            </div>
+                            <p style="color:var(--muted);font-size:13px;line-height:1.6;margin:0 0 10px;">
+                                No provedor do domínio (Cloudflare, Hostinger, GoDaddy, Registro.br, etc.), crie um registro <strong>A</strong> apontando para o IP do servidor:
+                            </p>
+                            <div style="display:flex;align-items:center;gap:8px;background:var(--darker);border-radius:8px;padding:8px 10px;">
+                                <span style="font-size:11px;color:var(--muted);">Tipo A</span>
+                                <code id="steps-ip" style="flex:1;color:var(--primary);font-size:13px;">IP do servidor</code>
+                                <button class="btn btn-sm" onclick="copyText(document.getElementById('steps-ip').textContent)"><i class="fas fa-copy"></i></button>
+                            </div>
+                            <p style="color:var(--muted);font-size:12px;line-height:1.5;margin:8px 0 0;">
+                                Recomendado: use a <strong style="color:#f59e0b;">Cloudflare com a nuvem LARANJA (Proxied)</strong> &mdash; ela esconde o IP do servidor e protege suas campanhas.
+                            </p>
+                        </div>
+                        <!-- Passo 2 -->
+                        <div style="padding:16px;background:var(--surface);border-radius:10px;border-top:3px solid #3b82f6;">
+                            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+                                <span style="background:#3b82f6;color:#fff;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;">2</span>
+                                <strong style="color:var(--light);">Pronto — ativa sozinho</strong>
+                            </div>
+                            <p style="color:var(--muted);font-size:13px;line-height:1.6;margin:0;">
+                                Assim que o DNS propagar, o servidor <strong>reconhece o domínio e emite o SSL automaticamente</strong> na primeira visita. Você não cria pasta, não faz upload e não instala nada.
+                            </p>
+                        </div>
+                        <!-- Passo 3 -->
+                        <div style="padding:16px;background:var(--surface);border-radius:10px;border-top:3px solid var(--success);">
+                            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+                                <span style="background:var(--success);color:#fff;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;">3</span>
+                                <strong style="color:var(--light);">Escolha na campanha</strong>
+                            </div>
+                            <p style="color:var(--muted);font-size:13px;line-height:1.6;margin:0;">
+                                Em <strong>Campanhas</strong>, selecione qual domínio essa campanha vai usar no campo <strong>Domínio da Campanha</strong> e salve. Volte aqui e clique em <strong>Verificar</strong> para confirmar o status.
+                            </p>
+                        </div>
+                    </div>
+                    <div style="margin-top:16px;padding:12px 14px;background:var(--overlay);border-radius:8px;font-size:12.5px;color:var(--muted);line-height:1.6;">
+                        <i class="fas fa-circle-info" style="color:#a855f7;margin-right:6px;"></i>
+                        Você pode apontar <strong>quantos domínios quiser</strong> para o servidor. As páginas Safe e Offer NÃO precisam de domínio &mdash; são só URLs digitadas no formulário da campanha.
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-body">
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Domínio</th>
+                                    <th>Usado por</th>
+                                    <th>Conexão</th>
+                                    <th>Status</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="domains-table">
+                                <tr>
+                                    <td colspan="5">
+                                        <div class="empty-state">
+                                            <i class="fas fa-globe"></i>
+                                            <h3>Nenhum domínio</h3>
+                                            <p>Clique em "Adicionar domínio" para cadastrar o primeiro</p>
                                         </div>
                                     </td>
                                 </tr>
@@ -3955,74 +4365,22 @@ HTACCESS;
         <div id="page-downloads" class="page" style="display:none;">
             <div class="page-header">
                 <div>
-                    <h1 class="page-title">Downloads e Configuracao</h1>
-                    <p class="page-subtitle">Baixe os arquivos e configure seus anuncios</p>
+                    <h1 class="page-title">Configuracao de Anuncios</h1>
+                    <p class="page-subtitle">Gere as URLs com parametros UTM para suas campanhas</p>
                 </div>
             </div>
             
-            <div class="grid-2">
-                <div class="card">
-                    <div class="card-header">
-                        <h3 class="card-title"><i class="fas fa-code" style="margin-right:8px;color:var(--primary);"></i>Tracker (index.php)</h3>
-                    </div>
-                    <div class="card-body">
-                        <p style="color:var(--muted);margin-bottom:16px;">
-                            Selecione uma campanha para gerar o tracker personalizado.
+            <!-- Aviso: nao precisa mais baixar tracker -->
+            <div class="card" style="margin-bottom:20px;border-left:4px solid var(--success);">
+                <div class="card-body" style="display:flex;gap:14px;align-items:flex-start;">
+                    <i class="fas fa-circle-check" style="color:var(--success);font-size:22px;margin-top:2px;"></i>
+                    <div>
+                        <strong style="color:var(--light);">Nao e mais necessario baixar arquivos.</strong>
+                        <p style="color:var(--muted);font-size:14px;margin-top:6px;line-height:1.6;margin-bottom:0;">
+                            O cloaking agora roda direto no COMMANDER. Basta apontar o dominio da campanha para o servidor na aba
+                            <a href="#domains" onclick="switchPage('domains')" style="color:var(--primary);font-weight:600;">Dominios</a>
+                            e criar a campanha. O motor e gerado automaticamente ao salvar &mdash; sem upload de <code>index.php</code> ou <code>.htaccess</code>.
                         </p>
-                        <div class="form-group">
-                            <select id="download-campaign" class="form-control">
-                                <option value="">Selecione uma campanha...</option>
-                            </select>
-                        </div>
-                        <button class="btn btn-primary" onclick="downloadTracker()">
-                            <i class="fas fa-download"></i> Baixar Tracker
-                        </button>
-                    </div>
-                </div>
-                
-                <div class="card">
-                    <div class="card-header">
-                        <h3 class="card-title"><i class="fas fa-cog" style="margin-right:8px;color:var(--warning);"></i>.htaccess</h3>
-                    </div>
-                    <div class="card-body">
-                        <p style="color:var(--muted);margin-bottom:16px;">
-                            Arquivo de configuracao Apache para o dominio do tracker.
-                        </p>
-                        <button class="btn btn-primary" onclick="downloadHtaccess()">
-                            <i class="fas fa-download"></i> Baixar .htaccess
-                        </button>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Instrucoes de Instalacao -->
-            <div class="card" style="margin-top:20px;">
-                <div class="card-header">
-                    <h3 class="card-title"><i class="fas fa-book" style="margin-right:8px;color:var(--success);"></i>Como Instalar o Tracker</h3>
-                </div>
-                <div class="card-body">
-                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:20px;">
-                        <div style="padding:15px;background:var(--surface);border-radius:8px;">
-                            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
-                                <span style="background:var(--primary);color:white;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:600;">1</span>
-                                <strong>Baixe os arquivos</strong>
-                            </div>
-                            <p style="color:var(--muted);font-size:14px;">Selecione sua campanha e baixe o <code>index.php</code> e o <code>.htaccess</code></p>
-                        </div>
-                        <div style="padding:15px;background:var(--surface);border-radius:8px;">
-                            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
-                                <span style="background:var(--primary);color:white;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:600;">2</span>
-                                <strong>Faca upload</strong>
-                            </div>
-                            <p style="color:var(--muted);font-size:14px;">Envie ambos os arquivos para a <strong>raiz</strong> do seu dominio de tracking via FTP ou Gerenciador de Arquivos</p>
-                        </div>
-                        <div style="padding:15px;background:var(--surface);border-radius:8px;">
-                            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
-                                <span style="background:var(--primary);color:white;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:600;">3</span>
-                                <strong>Configure o anuncio</strong>
-                            </div>
-                            <p style="color:var(--muted);font-size:14px;">Use a URL com os parametros UTM conforme a plataforma (veja abaixo)</p>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -4036,7 +4394,7 @@ HTACCESS;
                     <!-- Campo de dominio -->
                     <div style="margin-bottom:25px;padding:20px;background:linear-gradient(135deg,var(--primary-alpha) 0%,var(--secondary-alpha) 100%);border-radius:12px;border:1px solid var(--primary);">
                         <label style="display:block;margin-bottom:10px;font-weight:600;color:var(--light);">
-                            <i class="fas fa-globe" style="margin-right:8px;"></i>Digite seu dominio de tracking:
+                            <i class="fas fa-globe" style="margin-right:8px;"></i>Digite o dominio da campanha:
                         </label>
                         <input type="text" id="utm-domain" class="form-control" placeholder="meusite.com.br" style="font-size:18px;padding:15px;background:var(--darker);border:2px solid var(--primary);">
                         <p style="color:var(--muted);font-size:12px;margin-top:8px;">
@@ -4183,9 +4541,9 @@ HTACCESS;
                 <div class="card-body">
                     <ul style="color:var(--muted);padding-left:20px;line-height:2;">
                         <li><strong style="color:var(--light);">Sempre teste primeiro:</strong> Adicione seu IP na Whitelist e teste se esta redirecionando corretamente</li>
-                        <li><strong style="color:var(--light);">SSL obrigatorio:</strong> Use HTTPS no seu dominio de tracking para evitar bloqueios</li>
+                        <li><strong style="color:var(--light);">SSL automatico:</strong> O HTTPS do dominio de campanha e emitido sozinho na primeira visita &mdash; nao precisa configurar</li>
                         <li><strong style="color:var(--light);">White page valida:</strong> Use uma pagina real e relevante (blog, artigo) como white page</li>
-                        <li><strong style="color:var(--light);">Nao edite o tracker:</strong> Nao modifique o index.php gerado, pois pode quebrar a conexao com a API</li>
+                        <li><strong style="color:var(--light);">Cloudflare laranja (Proxied):</strong> Deixe o dominio da campanha com a nuvem LARANJA para esconder o IP do servidor e proteger a operacao</li>
                         <li><strong style="color:var(--light);">Monitore os logs:</strong> Verifique regularmente os logs de bots para ajustar a protecao</li>
                     </ul>
                 </div>
@@ -4217,6 +4575,17 @@ HTACCESS;
                     <input type="text" name="slug" id="campaign-slug" class="form-control" placeholder="deixe vazio para gerar automaticamente">
                 </div>
                 
+                <div class="form-group">
+                    <label>Domínio da Campanha</label>
+                    <select name="domain" id="campaign-domain" class="form-control">
+                        <option value="">Selecione um domínio ativo...</option>
+                    </select>
+                    <small style="display:block;margin-top:6px;color:var(--muted);font-size:12px;">
+                        Aparecem aqui apenas os domínios <strong>ativos</strong> (apontados corretamente). Não vê o seu?
+                        <a href="#" onclick="switchPage('domains');closeModal('campaign-modal');return false;" style="color:var(--primary);">Adicione e verifique em Domínios</a>.
+                    </small>
+                </div>
+                
                 <div class="grid-2">
                     <div class="form-group">
                         <label>Plataforma</label>
@@ -4244,7 +4613,7 @@ HTACCESS;
                 </div>
                 
                 <div class="form-group">
-                    <label>Metodo White Page</label>
+                    <label>Metodo Safe Page</label>
                     <select name="white_method" id="campaign-white-method" class="form-control">
                         <option value="redirect">Redirect 302</option>
                         <option value="proxy">Proxy (mostra conteudo)</option>
@@ -4254,7 +4623,7 @@ HTACCESS;
                 </div>
                 
                 <div class="form-group">
-                    <label>Black Page URL (para humanos)</label>
+                    <label>Offer Page URL</label>
                     <input type="url" name="black_url" id="campaign-black-url" class="form-control" placeholder="https://exemplo.com/oferta">
                 </div>
                 
@@ -4365,7 +4734,7 @@ HTACCESS;
                             <option value="nl">Holandes (Nederlands)</option>
                             <option value="ru">Russo (Русский)</option>
                             <option value="tr">Turco (Turkce)</option>
-                            <option value="ar">Arabe (العربية)</option>
+                            <option value="ar">Arabe (ال��ربية)</option>
                             <option value="ja">Japones (日本語)</option>
                             <option value="zh">Chines (中文)</option>
                         </select>
@@ -4543,6 +4912,80 @@ HTACCESS;
     </div>
 </div>
 
+<!-- Domain Help Modal (estilo White Rabbit) -->
+<div id="add-domain-modal" class="modal-overlay">
+    <div class="modal" style="max-width:480px;">
+        <div class="modal-header">
+            <h3 class="modal-title"><i class="fas fa-globe" style="color:#a855f7;margin-right:8px;"></i>Adicionar domínio</h3>
+            <button class="modal-close" onclick="closeModal('add-domain-modal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label>Domínio</label>
+                <input type="text" id="add-domain-input" class="form-control" placeholder="ex: oferta1.com" autocomplete="off"
+                       onkeydown="if(event.key==='Enter'&&!event.isComposing&&event.keyCode!==229){event.preventDefault();submitAddDomain();}">
+                <small style="display:block;margin-top:8px;color:var(--muted);font-size:12px;line-height:1.6;">
+                    Depois de adicionar, aponte o registro <strong>A</strong> dele para o IP
+                    <code id="add-domain-ip" style="color:var(--primary);">IP do servidor</code>
+                    e clique em <strong>Verificar</strong> na tabela. Recomendado usar a Cloudflare com a nuvem laranja (Proxied).
+                </small>
+            </div>
+        </div>
+        <div class="modal-footer" style="display:flex;gap:10px;justify-content:flex-end;padding:16px 20px;">
+            <button class="btn btn-secondary" onclick="closeModal('add-domain-modal')">Cancelar</button>
+            <button class="btn btn-primary" onclick="submitAddDomain()"><i class="fas fa-plus"></i> Adicionar</button>
+        </div>
+    </div>
+</div>
+
+<div id="domain-help-modal" class="modal-overlay">
+    <div class="modal" style="max-width:560px;">
+        <div class="modal-header">
+            <h3 class="modal-title"><i class="fas fa-globe" style="color:#a855f7;margin-right:8px;"></i>Como apontar seu domínio</h3>
+            <button class="modal-close" onclick="closeModal('domain-help-modal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p style="color:var(--muted);font-size:14px;line-height:1.6;margin-bottom:20px;">
+                Aponte o domínio para o servidor e ele fica ativo automaticamente &mdash; com SSL emitido na hora, sem criar pasta, sem upload e sem baixar nada.
+            </p>
+
+            <div style="display:flex;gap:12px;margin-bottom:18px;">
+                <div style="width:26px;height:26px;border-radius:50%;background:#a855f7;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0;">1</div>
+                <div>
+                    <strong style="color:var(--light);">Acesse o painel de DNS do domínio.</strong>
+                    <p style="color:var(--muted);font-size:13px;margin-top:4px;line-height:1.5;">No provedor onde o domínio está (Cloudflare, Hostinger, GoDaddy, Registro.br, etc.), abra "Registros DNS".</p>
+                </div>
+            </div>
+
+            <div style="display:flex;gap:12px;margin-bottom:18px;">
+                <div style="width:26px;height:26px;border-radius:50%;background:#a855f7;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0;">2</div>
+                <div style="flex:1;">
+                    <strong style="color:var(--light);">Crie um registro A com o IP do servidor.</strong>
+                    <p style="color:var(--muted);font-size:13px;margin-top:4px;margin-bottom:10px;line-height:1.5;">
+                        Aponte o domínio (ou subdomínio) para o IP abaixo. Recomendado: use a Cloudflare com a nuvem <strong style="color:#f59e0b;">LARANJA (Proxied)</strong> para esconder o IP do servidor.
+                    </p>
+                    <div style="display:flex;align-items:center;gap:8px;background:var(--darker);border-radius:8px;padding:10px;">
+                        <span style="font-size:12px;color:var(--muted);width:60px;">Tipo A</span>
+                        <code id="dns-a-value" style="flex:1;color:var(--primary);font-size:13px;">-</code>
+                        <button class="btn btn-sm" onclick="copyText(document.getElementById('dns-a-value').textContent)"><i class="fas fa-copy"></i></button>
+                    </div>
+                </div>
+            </div>
+
+            <div style="display:flex;gap:12px;margin-bottom:18px;">
+                <div style="width:26px;height:26px;border-radius:50%;background:var(--success);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0;">3</div>
+                <div>
+                    <strong style="color:var(--light);">Selecione o domínio na campanha.</strong>
+                    <p style="color:var(--muted);font-size:13px;margin-top:4px;line-height:1.5;">Em Campanhas, escolha esse domínio no campo <strong>Domínio da Campanha</strong> e salve. Depois volte aqui e clique em <strong>Verificar</strong> &mdash; quando o status ficar <span style="color:var(--success);">Conectado</span>, está no ar.</p>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-primary" onclick="closeModal('domain-help-modal')">Entendi</button>
+        </div>
+    </div>
+</div>
+
 <!-- Whitelist Modal -->
 <div id="whitelist-modal" class="modal-overlay">
     <div class="modal" style="max-width:400px;">
@@ -4660,6 +5103,7 @@ document.querySelectorAll('.nav-link[data-page]').forEach(link => {
         // Load data
         if (page === 'dashboard') loadStats();
         if (page === 'campaigns') loadCampaigns();
+        if (page === 'domains') loadDomains();
         if (page === 'analytics') initAnalytics();
         if (page === 'sales') initSales();
         if (page === 'gateways') initGateways();
@@ -4667,9 +5111,15 @@ document.querySelectorAll('.nav-link[data-page]').forEach(link => {
         if (page === 'logs') loadLogs();
         if (page === 'ips') loadIPs();
         if (page === 'forcewhite') loadForceWhite();
-        if (page === 'downloads') loadCampaignsForDownload();
+        if (page === 'downloads') updateAllUTMs();
     });
 });
+
+// Navega para uma pagina programaticamente (reutiliza o clique do menu)
+function switchPage(page) {
+    const link = document.querySelector('.nav-link[data-page="' + page + '"]');
+    if (link) link.click();
+}
 
 // Toast
 function showToast(message, type = 'success') {
@@ -5816,11 +6266,173 @@ function renderCampaigns() {
     }).join('');
 }
 
+// ===== Dominios =====
+let domainsData = [];
+let commanderHost = '';
+let commanderIp = '';
+
+async function loadDomains() {
+    const result = await apiCall('get_domains');
+    if (!result) return;
+    domainsData = result.domains || [];
+    commanderHost = result.commander_host || '';
+    commanderIp = result.server_ip || '';
+
+    document.getElementById('commander-host').textContent = commanderHost || '-';
+    document.getElementById('commander-ip').textContent = commanderIp || '-';
+    const dnsA = document.getElementById('dns-a-value');
+    if (dnsA) dnsA.textContent = commanderIp || '(IP do servidor)';
+    const stepsIp = document.getElementById('steps-ip');
+    if (stepsIp) stepsIp.textContent = commanderIp || 'IP do servidor';
+
+    renderDomains();
+}
+
+function renderDomains() {
+    const tbody = document.getElementById('domains-table');
+
+    if (!domainsData.length) {
+        tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state"><i class="fas fa-globe"></i><h3>Nenhum domínio</h3><p>Clique em "Adicionar domínio" para cadastrar o primeiro</p></div></td></tr>';
+        return;
+    }
+
+    const statusMap = {
+        connected: '<span class="badge badge-success"><i class="fas fa-check-circle"></i> Ativo</span>',
+        pending:   '<span class="badge badge-warning"><i class="fas fa-clock"></i> Pendente</span>',
+        error:     '<span class="badge badge-danger"><i class="fas fa-times-circle"></i> Não resolve</span>'
+    };
+
+    tbody.innerHTML = domainsData.map(d => {
+        const statusBadge = statusMap[d.status] || statusMap.pending;
+        const resolved = d.resolved ? escapeHtml(d.resolved) : '<span style="color:var(--muted);">-</span>';
+        const usedBy = d.used_by
+            ? escapeHtml(d.used_by)
+            : '<span style="color:var(--muted);font-size:12px;">Nenhuma campanha</span>';
+        return `
+            <tr>
+                <td><a href="https://${escapeHtml(d.domain)}" target="_blank" rel="noopener" style="color:var(--primary);font-weight:600;">${escapeHtml(d.domain)}</a></td>
+                <td>${usedBy}</td>
+                <td style="font-size:12px;color:var(--muted);">${resolved}</td>
+                <td>${statusBadge}</td>
+                <td>
+                    <div class="actions">
+                        <button class="action-btn" onclick="verifyDomain('${escapeHtml(d.id)}')" title="Verificar"><i class="fas fa-rotate"></i></button>
+                        <button class="action-btn" onclick="deleteDomain('${escapeHtml(d.id)}','${escapeHtml(d.domain)}')" title="Excluir"><i class="fas fa-trash"></i></button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+// Abre o modal de adicionar dominio
+function openAddDomainModal() {
+    const input = document.getElementById('add-domain-input');
+    if (input) input.value = '';
+    const ip = document.getElementById('add-domain-ip');
+    if (ip) ip.textContent = commanderIp || 'IP do servidor';
+    openModal('add-domain-modal');
+}
+
+// Salva um novo dominio no registro
+async function submitAddDomain() {
+    const input = document.getElementById('add-domain-input');
+    const domain = (input?.value || '').trim();
+    if (!domain) { showToast('Digite um domínio', 'warning'); return; }
+
+    const result = await apiCall('add_domain', { domain });
+    if (result?.success) {
+        showToast('Domínio adicionado! Aponte o DNS e clique em Verificar.', 'success');
+        closeModal('add-domain-modal');
+        loadDomains();
+    } else {
+        showToast(result?.error || 'Erro ao adicionar domínio', 'error');
+    }
+}
+
+// Reverifica um dominio especifico
+async function verifyDomain(id) {
+    showToast('Verificando...', 'info');
+    const result = await apiCall('verify_domain', { domain_id: id });
+    if (result) {
+        domainsData = result.domains || domainsData;
+        renderDomains();
+        const d = domainsData.find(x => x.id === id);
+        if (d && d.status === 'connected') showToast('Domínio ativo!', 'success');
+        else if (d && d.status === 'error') showToast('Ainda não resolve. Confira o DNS.', 'warning');
+        else showToast('Ainda pendente. Aguarde a propagação do DNS.', 'warning');
+    }
+}
+
+// Remove um dominio do registro
+async function deleteDomain(id, domain) {
+    if (!confirm('Excluir o domínio "' + domain + '"? As campanhas que o usam precisarão de outro domínio.')) return;
+    const result = await apiCall('delete_domain', { domain_id: id });
+    if (result?.success) {
+        showToast('Domínio removido', 'success');
+        loadDomains();
+    } else {
+        showToast('Erro ao remover', 'error');
+    }
+}
+
+function openDomainHelpModal() {
+  const dnsA = document.getElementById('dns-a-value');
+  if (dnsA) dnsA.textContent = commanderIp || '(IP do servidor)';
+  openModal('domain-help-modal');
+  }
+
+function copyText(text) {
+    if (!text) return;
+    navigator.clipboard.writeText(text).then(
+        () => showToast('Copiado!', 'success'),
+        () => showToast('Não foi possível copiar', 'error')
+    );
+}
+
+// Preenche o dropdown de dominios da campanha apenas com dominios ativos.
+// Mantem o dominio atual da campanha selecionado mesmo se ainda nao estiver ativo.
+async function populateCampaignDomains(selected) {
+    const sel = document.getElementById('campaign-domain');
+    if (!sel) return;
+    sel.innerHTML = '<option value="">Selecione um domínio ativo...</option>';
+
+    const result = await apiCall('get_active_domains');
+    const domains = (result && result.domains) ? result.domains : [];
+
+    domains.forEach(d => {
+        const opt = document.createElement('option');
+        opt.value = d;
+        opt.textContent = d;
+        sel.appendChild(opt);
+    });
+
+    // Se a campanha ja tem um dominio salvo que nao esta na lista de ativos,
+    // adiciona ele assim mesmo (marcado) para nao perder o valor ao editar.
+    if (selected && !domains.includes(selected)) {
+        const opt = document.createElement('option');
+        opt.value = selected;
+        opt.textContent = selected + ' (inativo)';
+        sel.appendChild(opt);
+    }
+
+    sel.value = selected || '';
+
+    if (domains.length === 0 && !selected) {
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.disabled = true;
+        opt.textContent = 'Nenhum domínio ativo — adicione em Domínios';
+        sel.appendChild(opt);
+    }
+}
+
 function openCampaignModal(campaign = null) {
     document.getElementById('campaign-modal-title').textContent = campaign ? 'Editar Campanha' : 'Nova Campanha';
     document.getElementById('campaign-id').value = campaign?.id || '';
     document.getElementById('campaign-name').value = campaign?.name || '';
     document.getElementById('campaign-slug').value = campaign?.slug || '';
+    populateCampaignDomains(campaign?.domain || '');
     document.getElementById('campaign-platform').value = campaign?.platform || 'tiktok';
     document.getElementById('campaign-status').value = campaign?.status || 'active';
     document.getElementById('campaign-white-url').value = campaign?.white_url || '';
@@ -6065,48 +6677,6 @@ async function unblockIP(ip) {
     if (result?.success) {
         showToast('IP desbloqueado!');
         loadIPs();
-    }
-}
-
-// Downloads
-async function loadCampaignsForDownload() {
-    const result = await apiCall('get_campaigns');
-    if (!result || !result.campaigns) return;
-    
-    const select = document.getElementById('download-campaign');
-    select.innerHTML = '<option value="">Selecione uma campanha...</option>' + 
-        result.campaigns.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
-}
-
-async function downloadTracker() {
-    const campaignId = document.getElementById('download-campaign').value;
-    if (!campaignId) {
-        showToast('Selecione uma campanha', 'warning');
-        return;
-    }
-    
-    const result = await apiCall('download_tracker', { campaign_id: campaignId });
-    
-    if (result?.code) {
-        currentCode = result.code;
-        currentFilename = result.filename;
-        document.getElementById('code-modal-title').textContent = 'Tracker - ' + result.filename;
-        document.getElementById('code-content').textContent = result.code;
-        openModal('code-modal');
-    } else {
-        showToast('Erro ao gerar tracker', 'error');
-    }
-}
-
-async function downloadHtaccess() {
-    const result = await apiCall('download_htaccess');
-    
-    if (result?.code) {
-        currentCode = result.code;
-        currentFilename = result.filename;
-        document.getElementById('code-modal-title').textContent = result.filename;
-        document.getElementById('code-content').textContent = result.code;
-        openModal('code-modal');
     }
 }
 
