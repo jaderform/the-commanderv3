@@ -38,6 +38,17 @@ function commanderMaybeRouteCampaignDomain() {
     $host = commanderNormalizeDomain($_SERVER['HTTP_HOST'] ?? '');
     if ($host === '') return;
 
+    // Ping de verificacao: se o dominio for acessado com ?__cmdr_ping=1, o
+    // COMMANDER responde com uma assinatura. Se o painel conseguir ler essa
+    // assinatura ao consultar o dominio, e prova de que o trafego chega ate
+    // aqui (mesmo passando pela Cloudflare com proxy laranja ativo).
+    if (isset($_GET['__cmdr_ping'])) {
+        header('Content-Type: text/plain; charset=utf-8');
+        header('Cache-Control: no-store');
+        echo 'COMMANDER-LIVE:' . $host;
+        exit;
+    }
+
     $campaignsFile = __DIR__ . '/data/campaigns.json';
     if (!is_file($campaignsFile)) return;
 
@@ -56,44 +67,72 @@ function commanderMaybeRouteCampaignDomain() {
 commanderMaybeRouteCampaignDomain();
 
 /**
- * Verifica, via DNS, se o dominio da campanha aponta para o COMMANDER.
- * Retorna 'connected' (aponta certo), 'pending' (nao aponta ainda) ou
- * 'error' (dominio nao resolve).
+ * Verifica, via HTTP, se o dominio da campanha realmente chega ate o COMMANDER.
+ *
+ * Faz uma requisicao para https://{dominio}/?__cmdr_ping=1 e confere se a
+ * resposta contem a assinatura "COMMANDER-LIVE". Esse metodo funciona mesmo
+ * com a Cloudflare na frente (proxy laranja), porque o teste segue o mesmo
+ * caminho do visitante real ate o servidor de origem.
+ *
+ * Retorna:
+ *  - 'connected'  : assinatura recebida (dominio ativo e apontando certo)
+ *  - 'pending'    : dominio responde, mas ainda nao chega ao COMMANDER
+ *  - 'error'      : dominio nao resolve / sem resposta
+ * Em 'resolved' indica se esta protegido pela Cloudflare.
  */
-function commanderCheckDomainStatus($domain, $commanderHost, $serverIp) {
+function commanderCheckDomainStatus($domain, $commanderHost = '', $serverIp = '') {
     $domain = commanderNormalizeDomain($domain);
     $result = ['status' => 'pending', 'resolved' => ''];
     if ($domain === '') { $result['status'] = 'error'; return $result; }
 
-    // Tenta resolver CNAME primeiro
-    $cname = '';
-    if (function_exists('dns_get_record')) {
-        $records = @dns_get_record($domain, DNS_CNAME);
-        if (is_array($records)) {
-            foreach ($records as $r) {
-                if (!empty($r['target'])) { $cname = commanderNormalizeDomain($r['target']); break; }
-            }
-        }
-    }
-    if ($cname !== '' && $commanderHost !== '' && $cname === $commanderHost) {
-        $result['status'] = 'connected';
-        $result['resolved'] = $cname . ' (CNAME)';
-        return $result;
-    }
-
-    // Tenta resolver por IP (registro A)
+    // Se o dominio nem resolve no DNS, e erro direto.
     $ip = @gethostbyname($domain);
-    if ($ip && $ip !== $domain) {
-        $result['resolved'] = $ip;
-        if ($serverIp && $ip === $serverIp) {
-            $result['status'] = 'connected';
-        } else {
-            $result['status'] = 'pending';
-        }
+    if (!$ip || $ip === $domain) {
+        $result['status'] = 'error';
         return $result;
     }
 
-    $result['status'] = 'error';
+    if (!function_exists('curl_init')) {
+        // Sem cURL nao da pra testar via HTTP; assume pendente.
+        $result['resolved'] = $ip;
+        return $result;
+    }
+
+    // Tenta HTTPS e, em fallback, HTTP.
+    foreach (['https', 'http'] as $scheme) {
+        $ch = curl_init($scheme . '://' . $domain . '/?__cmdr_ping=1');
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HEADER         => true,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_MAXREDIRS      => 3,
+            CURLOPT_TIMEOUT        => 8,
+            CURLOPT_CONNECTTIMEOUT => 5,
+            CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_SSL_VERIFYHOST => false,
+            CURLOPT_USERAGENT      => 'COMMANDER-DomainCheck/1.0',
+        ]);
+        $raw = curl_exec($ch);
+        $err = curl_errno($ch);
+        curl_close($ch);
+
+        if ($err !== 0 || $raw === false) continue;
+
+        // Detecta Cloudflare pelos headers da resposta.
+        $viaCloudflare = (stripos($raw, 'server: cloudflare') !== false)
+            || (stripos($raw, 'cf-ray:') !== false);
+
+        if (strpos($raw, 'COMMANDER-LIVE') !== false) {
+            $result['status'] = 'connected';
+            $result['resolved'] = $viaCloudflare ? 'Cloudflare (protegido)' : 'Direto';
+            return $result;
+        }
+
+        // Respondeu algo, mas nao e o COMMANDER: aponta pra outro lugar.
+        $result['status'] = 'pending';
+        $result['resolved'] = $viaCloudflare ? 'Cloudflare (aguardando origem)' : 'Aponta para outro servidor';
+    }
+
     return $result;
 }
 
@@ -3316,7 +3355,7 @@ HTACCESS;
                                 <button class="btn btn-sm" onclick="copyText(document.getElementById('steps-ip').textContent)"><i class="fas fa-copy"></i></button>
                             </div>
                             <p style="color:var(--muted);font-size:12px;line-height:1.5;margin:8px 0 0;">
-                                Se usar Cloudflare, deixe a nuvem <strong style="color:#f59e0b;">CINZA (DNS only)</strong>.
+                                Recomendado: use a <strong style="color:#f59e0b;">Cloudflare com a nuvem LARANJA (Proxied)</strong> &mdash; ela esconde o IP do servidor e protege suas campanhas.
                             </p>
                         </div>
                         <!-- Passo 2 -->
@@ -3355,8 +3394,8 @@ HTACCESS;
                                 <tr>
                                     <th>Domínio</th>
                                     <th>Campanha</th>
-                                    <th>Aponta para</th>
-                                    <th>Status DNS</th>
+                                    <th>Conexão</th>
+                                    <th>Status</th>
                                     <th>Motor</th>
                                     <th>Ações</th>
                                 </tr>
@@ -4408,7 +4447,7 @@ HTACCESS;
                         <li><strong style="color:var(--light);">Sempre teste primeiro:</strong> Adicione seu IP na Whitelist e teste se esta redirecionando corretamente</li>
                         <li><strong style="color:var(--light);">SSL automatico:</strong> O HTTPS do dominio de campanha e emitido sozinho na primeira visita &mdash; nao precisa configurar</li>
                         <li><strong style="color:var(--light);">White page valida:</strong> Use uma pagina real e relevante (blog, artigo) como white page</li>
-                        <li><strong style="color:var(--light);">DNS only na Cloudflare:</strong> Deixe o dominio da campanha com a nuvem CINZA (sem proxy) para o cloaking funcionar</li>
+                        <li><strong style="color:var(--light);">Cloudflare laranja (Proxied):</strong> Deixe o dominio da campanha com a nuvem LARANJA para esconder o IP do servidor e proteger a operacao</li>
                         <li><strong style="color:var(--light);">Monitore os logs:</strong> Verifique regularmente os logs de bots para ajustar a protecao</li>
                     </ul>
                 </div>
@@ -4596,7 +4635,7 @@ HTACCESS;
                             <option value="nl">Holandes (Nederlands)</option>
                             <option value="ru">Russo (Русский)</option>
                             <option value="tr">Turco (Turkce)</option>
-                            <option value="ar">Arabe (العربية)</option>
+                            <option value="ar">Arabe (ال��ربية)</option>
                             <option value="ja">Japones (日本語)</option>
                             <option value="zh">Chines (中文)</option>
                         </select>
@@ -4799,7 +4838,7 @@ HTACCESS;
                 <div style="flex:1;">
                     <strong style="color:var(--light);">Crie um registro A com o IP do servidor.</strong>
                     <p style="color:var(--muted);font-size:13px;margin-top:4px;margin-bottom:10px;line-height:1.5;">
-                        Aponte o domínio (ou subdomínio) para o IP abaixo. Se usar Cloudflare, deixe a nuvem <strong style="color:#f59e0b;">CINZA (DNS only)</strong>.
+                        Aponte o domínio (ou subdomínio) para o IP abaixo. Recomendado: use a Cloudflare com a nuvem <strong style="color:#f59e0b;">LARANJA (Proxied)</strong> para esconder o IP do servidor.
                     </p>
                     <div style="display:flex;align-items:center;gap:8px;background:var(--darker);border-radius:8px;padding:10px;">
                         <span style="font-size:12px;color:var(--muted);width:60px;">Tipo A</span>
