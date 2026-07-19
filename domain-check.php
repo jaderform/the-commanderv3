@@ -35,25 +35,33 @@ if ($domain === '') {
     exit;
 }
 
+// 1) Dominios cadastrados na aba Dominios (registro proprio)
+$domainsFile = __DIR__ . '/data/domains.json';
+if (is_file($domainsFile)) {
+    $reg = json_decode((string) @file_get_contents($domainsFile), true);
+    if (is_array($reg)) {
+        foreach ($reg as $d) {
+            if (dcNormalizeDomain($d['domain'] ?? '') === $domain) {
+                http_response_code(200);
+                echo 'ok';
+                exit;
+            }
+        }
+    }
+}
+
+// 2) Dominios ja usados em campanhas (compatibilidade)
 $campaignsFile = __DIR__ . '/data/campaigns.json';
-if (!is_file($campaignsFile)) {
-    http_response_code(404);
-    echo 'no campaigns';
-    exit;
-}
-
-$all = json_decode((string) @file_get_contents($campaignsFile), true);
-if (!is_array($all)) {
-    http_response_code(404);
-    echo 'invalid data';
-    exit;
-}
-
-foreach ($all as $c) {
-    if (dcNormalizeDomain($c['domain'] ?? '') === $domain) {
-        http_response_code(200);
-        echo 'ok';
-        exit;
+if (is_file($campaignsFile)) {
+    $all = json_decode((string) @file_get_contents($campaignsFile), true);
+    if (is_array($all)) {
+        foreach ($all as $c) {
+            if (dcNormalizeDomain($c['domain'] ?? '') === $domain) {
+                http_response_code(200);
+                echo 'ok';
+                exit;
+            }
+        }
     }
 }
 
