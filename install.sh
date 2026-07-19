@@ -138,6 +138,24 @@ chmod -R 775 "$APP_DIR/data" "$APP_DIR/live"
 # 8) Escrever o Caddyfile com os valores corretos
 # ------------------------------------------------------------------
 say "Configurando o Caddy..."
+
+# Descobre o IP publico para permitir acesso ao painel por HTTP (sem SSL).
+# HTTPS por IP nao funciona (certificado so existe para dominios), entao o
+# painel administrativo e servido em HTTP puro pelo endereco IP.
+SERVER_IP=$(curl -s https://api.ipify.org || echo "")
+IP_BLOCK=""
+if [ -n "$SERVER_IP" ]; then
+  IP_BLOCK="
+# Acesso ao painel administrativo pelo IP (HTTP puro, sem SSL)
+http://${SERVER_IP} {
+	root * ${APP_DIR}
+	encode gzip
+	php_fastcgi unix/${PHP_SOCK}
+	file_server
+}
+"
+fi
+
 PANEL_BLOCK=""
 if [ -n "$PANEL_DOMAIN" ]; then
   PANEL_BLOCK="
@@ -158,7 +176,7 @@ cat > /etc/caddy/Caddyfile <<EOF
 		ask http://127.0.0.1/domain-check.php
 	}
 }
-${PANEL_BLOCK}
+${IP_BLOCK}${PANEL_BLOCK}
 # Catch-all: qualquer dominio de campanha apontado para este servidor
 https:// {
 	tls {
