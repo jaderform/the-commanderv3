@@ -1,0 +1,51 @@
+# ------------------------------------------------------------------
+# Caddyfile - COMMANDER em VPS (modelo automatico estilo White Rabbit)
+# ------------------------------------------------------------------
+# Com este setup, o cliente SO precisa apontar o DNS do dominio dele
+# para o IP deste servidor. Na primeira visita, o Caddy emite o SSL
+# automaticamente (Let's Encrypt) e serve a campanha. Nao ha passo
+# manual por dominio, nem pasta para o cliente criar.
+#
+# Requisitos no VPS:
+#   - Caddy instalado (v2+)
+#   - PHP-FPM instalado (ex: php8.2-fpm)
+#   - Os arquivos do COMMANDER em /var/www/commander
+#
+# Ajuste:
+#   - o e-mail do Let's Encrypt
+#   - o caminho do socket do PHP-FPM (veja: /run/php/)
+#   - /var/www/commander se instalar em outra pasta
+# ------------------------------------------------------------------
+
+{
+	# E-mail usado pelo Let's Encrypt para avisos de certificado
+	email seu-email@exemplo.com
+
+	# SSL sob demanda: antes de emitir um certificado para um dominio novo,
+	# o Caddy pergunta ao domain-check.php se aquele dominio e valido.
+	on_demand_tls {
+		ask http://127.0.0.1/domain-check.php
+	}
+}
+
+# Bloco unico "catch-all": responde a QUALQUER dominio apontado ao servidor.
+https:// {
+	tls {
+		on_demand
+	}
+
+	root * /var/www/commander
+	encode gzip
+
+	# Executa o PHP (index.php faz o roteamento por dominio)
+	php_fastcgi unix//run/php/php-fpm.sock
+	file_server
+}
+
+# Endpoint interno de autorizacao de SSL (usado pelo bloco on_demand_tls).
+# Responde em HTTP local, sem SSL, apenas para o proprio Caddy consultar.
+http://127.0.0.1 {
+	root * /var/www/commander
+	php_fastcgi unix//run/php/php-fpm.sock
+	file_server
+}

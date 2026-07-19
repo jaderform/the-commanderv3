@@ -3289,7 +3289,7 @@ HTACCESS;
                         <div id="commander-ip" style="font-size:16px;font-weight:600;color:var(--light);margin-top:4px;">-</div>
                     </div>
                     <div style="flex:1;min-width:220px;font-size:13px;color:var(--muted);line-height:1.5;">
-                        Cada domínio abaixo vem das suas campanhas. Depois de apontar o DNS, adicione o domínio na Hostinger apontando para a pasta do COMMANDER e clique em <strong>Verificar</strong>.
+                        Cada domínio abaixo vem das suas campanhas. Depois de apontar o registro A para o IP do servidor, clique em <strong>Verificar</strong> &mdash; o SSL é emitido automaticamente na primeira visita.
                     </div>
                 </div>
             </div>
@@ -3297,54 +3297,52 @@ HTACCESS;
             <!-- Primeiros passos -->
             <div class="card" style="margin-bottom:20px;">
                 <div class="card-header">
-                    <h3 class="card-title"><i class="fas fa-list-check" style="margin-right:8px;color:#a855f7;"></i>Como colocar um domínio no ar (4 passos)</h3>
+                    <h3 class="card-title"><i class="fas fa-list-check" style="margin-right:8px;color:#a855f7;"></i>Como colocar um domínio no ar (3 passos)</h3>
                 </div>
                 <div class="card-body">
-                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;">
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;">
                         <!-- Passo 1 -->
                         <div style="padding:16px;background:var(--surface);border-radius:10px;border-top:3px solid #a855f7;">
                             <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
                                 <span style="background:#a855f7;color:#fff;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;">1</span>
-                                <strong style="color:var(--light);">Registre 1 domínio</strong>
+                                <strong style="color:var(--light);">Aponte o DNS do domínio</strong>
                             </div>
-                            <p style="color:var(--muted);font-size:13px;line-height:1.6;margin:0;">
-                                Use <strong>um domínio novo por campanha</strong> (ex: <code>oferta1.com</code>). Ele será o link do anúncio. As páginas Safe e Offer NÃO precisam de domínio &mdash; são só URLs no formulário.
+                            <p style="color:var(--muted);font-size:13px;line-height:1.6;margin:0 0 10px;">
+                                No provedor do domínio (Cloudflare, Hostinger, GoDaddy, Registro.br, etc.), crie um registro <strong>A</strong> apontando para o IP do servidor:
+                            </p>
+                            <div style="display:flex;align-items:center;gap:8px;background:var(--darker);border-radius:8px;padding:8px 10px;">
+                                <span style="font-size:11px;color:var(--muted);">Tipo A</span>
+                                <code id="steps-ip" style="flex:1;color:var(--primary);font-size:13px;">IP do servidor</code>
+                                <button class="btn btn-sm" onclick="copyText(document.getElementById('steps-ip').textContent)"><i class="fas fa-copy"></i></button>
+                            </div>
+                            <p style="color:var(--muted);font-size:12px;line-height:1.5;margin:8px 0 0;">
+                                Se usar Cloudflare, deixe a nuvem <strong style="color:#f59e0b;">CINZA (DNS only)</strong>.
                             </p>
                         </div>
                         <!-- Passo 2 -->
-                        <div style="padding:16px;background:var(--surface);border-radius:10px;border-top:3px solid #f59e0b;">
+                        <div style="padding:16px;background:var(--surface);border-radius:10px;border-top:3px solid #3b82f6;">
                             <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
-                                <span style="background:#f59e0b;color:#fff;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;">2</span>
-                                <strong style="color:var(--light);">Aponte o DNS</strong>
+                                <span style="background:#3b82f6;color:#fff;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;">2</span>
+                                <strong style="color:var(--light);">Pronto — ativa sozinho</strong>
                             </div>
                             <p style="color:var(--muted);font-size:13px;line-height:1.6;margin:0;">
-                                Na Cloudflare, crie um registro <strong>A</strong> para o IP <code id="steps-ip">do servidor</code> com a nuvem <strong style="color:#f59e0b;">CINZA (DNS only)</strong> &mdash; nunca laranja/Proxied.
+                                Assim que o DNS propagar, o servidor <strong>reconhece o domínio e emite o SSL automaticamente</strong> na primeira visita. Você não cria pasta, não faz upload e não instala nada.
                             </p>
                         </div>
                         <!-- Passo 3 -->
-                        <div style="padding:16px;background:var(--surface);border-radius:10px;border-top:3px solid #3b82f6;">
-                            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
-                                <span style="background:#3b82f6;color:#fff;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;">3</span>
-                                <strong style="color:var(--light);">Adicione na Hostinger</strong>
-                            </div>
-                            <p style="color:var(--muted);font-size:13px;line-height:1.6;margin:0;">
-                                Adicione o domínio como site com a <strong>pasta raiz</strong> apontando para <code>public_html/COMMANDERV3</code> (NÃO deixe <code>public_html</code>). Depois, emita o <strong>SSL</strong> dele.
-                            </p>
-                        </div>
-                        <!-- Passo 4 -->
                         <div style="padding:16px;background:var(--surface);border-radius:10px;border-top:3px solid var(--success);">
                             <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
-                                <span style="background:var(--success);color:#fff;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;">4</span>
-                                <strong style="color:var(--light);">Crie a campanha</strong>
+                                <span style="background:var(--success);color:#fff;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;">3</span>
+                                <strong style="color:var(--light);">Escolha na campanha</strong>
                             </div>
                             <p style="color:var(--muted);font-size:13px;line-height:1.6;margin:0;">
-                                Em <strong>Campanhas</strong>, crie a campanha e preencha o campo <strong>Domínio da Campanha</strong> com esse domínio. O motor é gerado ao salvar. Volte aqui e clique em <strong>Verificar</strong>.
+                                Em <strong>Campanhas</strong>, selecione qual domínio essa campanha vai usar no campo <strong>Domínio da Campanha</strong> e salve. Volte aqui e clique em <strong>Verificar</strong> para confirmar o status.
                             </p>
                         </div>
                     </div>
                     <div style="margin-top:16px;padding:12px 14px;background:var(--overlay);border-radius:8px;font-size:12.5px;color:var(--muted);line-height:1.6;">
                         <i class="fas fa-circle-info" style="color:#a855f7;margin-right:6px;"></i>
-                        Você pode apontar <strong>quantos domínios quiser</strong> &mdash; todos para a mesma pasta <code>COMMANDERV3</code>. Cada campanha usa o seu próprio domínio, e o COMMANDER identifica automaticamente qual campanha servir.
+                        Você pode apontar <strong>quantos domínios quiser</strong> para o servidor. As páginas Safe e Offer NÃO precisam de domínio &mdash; são só URLs digitadas no formulário da campanha.
                     </div>
                 </div>
             </div>
@@ -4408,7 +4406,7 @@ HTACCESS;
                 <div class="card-body">
                     <ul style="color:var(--muted);padding-left:20px;line-height:2;">
                         <li><strong style="color:var(--light);">Sempre teste primeiro:</strong> Adicione seu IP na Whitelist e teste se esta redirecionando corretamente</li>
-                        <li><strong style="color:var(--light);">SSL obrigatorio:</strong> Garanta o HTTPS do dominio de campanha na Hostinger para evitar bloqueios</li>
+                        <li><strong style="color:var(--light);">SSL automatico:</strong> O HTTPS do dominio de campanha e emitido sozinho na primeira visita &mdash; nao precisa configurar</li>
                         <li><strong style="color:var(--light);">White page valida:</strong> Use uma pagina real e relevante (blog, artigo) como white page</li>
                         <li><strong style="color:var(--light);">DNS only na Cloudflare:</strong> Deixe o dominio da campanha com a nuvem CINZA (sem proxy) para o cloaking funcionar</li>
                         <li><strong style="color:var(--light);">Monitore os logs:</strong> Verifique regularmente os logs de bots para ajustar a protecao</li>
@@ -4785,50 +4783,37 @@ HTACCESS;
         </div>
         <div class="modal-body">
             <p style="color:var(--muted);font-size:14px;line-height:1.6;margin-bottom:20px;">
-                O domínio que você aponta para o COMMANDER é o link usado no anúncio. O cloaking roda direto no servidor &mdash; você não precisa baixar nenhum tracker.
+                Aponte o domínio para o servidor e ele fica ativo automaticamente &mdash; com SSL emitido na hora, sem criar pasta, sem upload e sem baixar nada.
             </p>
 
             <div style="display:flex;gap:12px;margin-bottom:18px;">
                 <div style="width:26px;height:26px;border-radius:50%;background:#a855f7;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0;">1</div>
                 <div>
-                    <strong style="color:var(--light);">Acesse o painel de DNS do seu domínio.</strong>
-                    <p style="color:var(--muted);font-size:13px;margin-top:4px;line-height:1.5;">Entre no provedor onde registrou o domínio e localize "Registros DNS" ou "Gerenciamento de DNS".</p>
+                    <strong style="color:var(--light);">Acesse o painel de DNS do domínio.</strong>
+                    <p style="color:var(--muted);font-size:13px;margin-top:4px;line-height:1.5;">No provedor onde o domínio está (Cloudflare, Hostinger, GoDaddy, Registro.br, etc.), abra "Registros DNS".</p>
                 </div>
             </div>
 
             <div style="display:flex;gap:12px;margin-bottom:18px;">
                 <div style="width:26px;height:26px;border-radius:50%;background:#a855f7;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0;">2</div>
                 <div style="flex:1;">
-                    <strong style="color:var(--light);">Crie o registro apontando para o COMMANDER.</strong>
+                    <strong style="color:var(--light);">Crie um registro A com o IP do servidor.</strong>
                     <p style="color:var(--muted);font-size:13px;margin-top:4px;margin-bottom:10px;line-height:1.5;">
-                        Recomendado: <strong>registro A</strong> com o IP do servidor (mais confiável em hospedagem compartilhada). Em subdomínios, você pode usar CNAME.
+                        Aponte o domínio (ou subdomínio) para o IP abaixo. Se usar Cloudflare, deixe a nuvem <strong style="color:#f59e0b;">CINZA (DNS only)</strong>.
                     </p>
-                    <div style="display:flex;align-items:center;gap:8px;background:var(--darker);border-radius:8px;padding:10px;margin-bottom:8px;">
+                    <div style="display:flex;align-items:center;gap:8px;background:var(--darker);border-radius:8px;padding:10px;">
                         <span style="font-size:12px;color:var(--muted);width:60px;">Tipo A</span>
                         <code id="dns-a-value" style="flex:1;color:var(--primary);font-size:13px;">-</code>
                         <button class="btn btn-sm" onclick="copyText(document.getElementById('dns-a-value').textContent)"><i class="fas fa-copy"></i></button>
-                    </div>
-                    <div style="display:flex;align-items:center;gap:8px;background:var(--darker);border-radius:8px;padding:10px;">
-                        <span style="font-size:12px;color:var(--muted);width:60px;">CNAME</span>
-                        <code id="dns-cname-value" style="flex:1;color:var(--primary);font-size:13px;">-</code>
-                        <button class="btn btn-sm" onclick="copyText(document.getElementById('dns-cname-value').textContent)"><i class="fas fa-copy"></i></button>
                     </div>
                 </div>
             </div>
 
             <div style="display:flex;gap:12px;margin-bottom:18px;">
-                <div style="width:26px;height:26px;border-radius:50%;background:#a855f7;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0;">3</div>
+                <div style="width:26px;height:26px;border-radius:50%;background:var(--success);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0;">3</div>
                 <div>
-                    <strong style="color:var(--light);">Adicione o domínio na sua hospedagem.</strong>
-                    <p style="color:var(--muted);font-size:13px;margin-top:4px;line-height:1.5;">No cPanel, adicione o domínio como <strong>Alias / Domínio Adicional</strong> apontando para a pasta do COMMANDER. Esse passo é necessário em hospedagem compartilhada.</p>
-                </div>
-            </div>
-
-            <div style="display:flex;gap:12px;">
-                <div style="width:26px;height:26px;border-radius:50%;background:#a855f7;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0;">4</div>
-                <div>
-                    <strong style="color:var(--light);">Volte aqui e clique em Verificar.</strong>
-                    <p style="color:var(--muted);font-size:13px;margin-top:4px;line-height:1.5;">A propagação de DNS pode levar alguns minutos. Quando o status ficar <span style="color:var(--success);">Conectado</span>, sua campanha está no ar.</p>
+                    <strong style="color:var(--light);">Selecione o domínio na campanha.</strong>
+                    <p style="color:var(--muted);font-size:13px;margin-top:4px;line-height:1.5;">Em Campanhas, escolha esse domínio no campo <strong>Domínio da Campanha</strong> e salve. Depois volte aqui e clique em <strong>Verificar</strong> &mdash; quando o status ficar <span style="color:var(--success);">Conectado</span>, está no ar.</p>
                 </div>
             </div>
         </div>
@@ -6132,10 +6117,10 @@ async function loadDomains() {
 
     document.getElementById('commander-host').textContent = commanderHost || '-';
     document.getElementById('commander-ip').textContent = commanderIp || '-';
-    document.getElementById('dns-a-value').textContent = commanderIp || '(IP do servidor)';
-    document.getElementById('dns-cname-value').textContent = commanderHost || '(host do commander)';
+    const dnsA = document.getElementById('dns-a-value');
+    if (dnsA) dnsA.textContent = commanderIp || '(IP do servidor)';
     const stepsIp = document.getElementById('steps-ip');
-    if (stepsIp) stepsIp.textContent = commanderIp || 'do servidor';
+    if (stepsIp) stepsIp.textContent = commanderIp || 'IP do servidor';
 
     renderDomains();
 }
@@ -6178,10 +6163,10 @@ function renderDomains() {
 }
 
 function openDomainHelpModal() {
-    document.getElementById('dns-a-value').textContent = commanderIp || '(IP do servidor)';
-    document.getElementById('dns-cname-value').textContent = commanderHost || '(host do commander)';
-    openModal('domain-help-modal');
-}
+  const dnsA = document.getElementById('dns-a-value');
+  if (dnsA) dnsA.textContent = commanderIp || '(IP do servidor)';
+  openModal('domain-help-modal');
+  }
 
 function copyText(text) {
     if (!text) return;
