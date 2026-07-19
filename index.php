@@ -166,9 +166,9 @@ function commanderSaveDomains($domains) {
 // INTEGRAÇÃO COM SISTEMA DE LOGIN DA RAIZ
 // ============================================
 
-// Inclui o sistema de protecao (login standalone do proprio COMMANDER).
-// Isso verifica se o usuario esta logado e popula $GLOBALS['usuario_logado'].
-require_once __DIR__ . '/proteger.php';
+// Inclui o sistema de protecao da raiz (pasta public, um nivel acima).
+// Isso verifica se o usuario esta logado, se o dispositivo eh autorizado, etc.
+require_once dirname(__DIR__) . '/proteger.php'; // ../proteger.php
 
 // Agora temos acesso a $GLOBALS['usuario_logado'] com:
 // - email, nome, eh_admin, utm_cloaker_ativo, expira_em
