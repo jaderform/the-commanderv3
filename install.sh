@@ -125,12 +125,23 @@ fi
 # 7) Baixar os arquivos do COMMANDER
 # ------------------------------------------------------------------
 say "Baixando o COMMANDER do GitHub..."
+# Evita o erro "detected dubious ownership" quando a pasta pertence a www-data.
+git config --global --add safe.directory "$APP_DIR" 2>/dev/null || true
+
 if [ -d "$APP_DIR/.git" ]; then
-  say "Repositorio ja existe, atualizando (git pull)..."
-  git -C "$APP_DIR" pull
+  say "Repositorio ja existe, atualizando (forcado)..."
+  # Descobre o branch remoto padrao (main/master) e forca o estado do repo
+  # para bater exatamente com o GitHub, ignorando cache/dados locais.
+  git -C "$APP_DIR" remote set-url origin "$REPO_URL" 2>/dev/null || true
+  git -C "$APP_DIR" fetch origin --prune
+  DEFBRANCH=$(git -C "$APP_DIR" remote show origin | sed -n 's/.*HEAD branch: //p')
+  [ -z "$DEFBRANCH" ] && DEFBRANCH=main
+  git -C "$APP_DIR" checkout -f "$DEFBRANCH" 2>/dev/null || true
+  git -C "$APP_DIR" reset --hard "origin/$DEFBRANCH"
 else
   rm -rf "$APP_DIR"
   git clone "$REPO_URL" "$APP_DIR"
+  git config --global --add safe.directory "$APP_DIR" 2>/dev/null || true
 fi
 
 if [ ! -d "$WEB_ROOT" ] || [ ! -d "$CLOAK_ROOT" ]; then
