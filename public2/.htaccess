@@ -1,0 +1,146 @@
+# ============================================================================
+# .HTACCESS - Configuracao de Seguranca V2
+# ============================================================================
+# Coloque este arquivo na RAIZ do seu dominio (onde fica login.php)
+# ============================================================================
+
+# Ativa o motor de reescrita
+RewriteEngine On
+
+# ============================================================================
+# PROTECAO DE ARQUIVOS SENSIVEIS
+# ============================================================================
+
+# Bloqueia acesso direto a arquivos JSON (dados sensiveis)
+<FilesMatch "\.(json|log)$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+# Bloqueia acesso a arquivos de backup e configuracao
+<FilesMatch "\.(bak|config|sql|fla|psd|ini|sh|inc|swp|dist)$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+# Bloqueia acesso a arquivos ocultos (comecam com .)
+<FilesMatch "^\.">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+# ============================================================================
+# PROTECAO DE DIRETORIOS
+# ============================================================================
+
+# Desativa listagem de diretorios
+Options -Indexes
+
+# Bloqueia acesso a pasta logs se existir
+<IfModule mod_rewrite.c>
+    RewriteRule ^logs/ - [F,L]
+</IfModule>
+
+# ============================================================================
+# HEADERS DE SEGURANCA
+# ============================================================================
+
+<IfModule mod_headers.c>
+    # Previne clickjacking
+    Header always set X-Frame-Options "SAMEORIGIN"
+    
+    # Previne MIME type sniffing
+    Header always set X-Content-Type-Options "nosniff"
+    
+    # Ativa XSS protection
+    Header always set X-XSS-Protection "1; mode=block"
+    
+    # Referrer Policy
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    
+    # Remove header do servidor
+    Header unset Server
+    Header unset X-Powered-By
+    
+    # Cache control para arquivos PHP
+    <FilesMatch "\.php$">
+        Header set Cache-Control "no-cache, no-store, must-revalidate"
+        Header set Pragma "no-cache"
+        Header set Expires "0"
+    </FilesMatch>
+</IfModule>
+
+# ============================================================================
+# PROTECAO CONTRA ATAQUES
+# ============================================================================
+
+# Bloqueia User-Agents maliciosos conhecidos
+<IfModule mod_rewrite.c>
+    RewriteCond %{HTTP_USER_AGENT} (havij|libwww-perl|wget|python|nikto|curl|scan|java|winhttp|clshttp|loader) [NC,OR]
+    RewriteCond %{HTTP_USER_AGENT} (<|>|'|%0A|%0D|%27|%3C|%3E|%00) [NC,OR]
+    RewriteCond %{HTTP_USER_AGENT} (;|<|>|'|"|\)|\(|%0A|%0D|%22|%27|%28|%3C|%3E|%00).*(teleport|telesoft|ysearch|morpheus|wget) [NC]
+    RewriteRule .* - [F,L]
+</IfModule>
+
+# Bloqueia query strings suspeitas
+<IfModule mod_rewrite.c>
+    RewriteCond %{QUERY_STRING} (\<|%3C).*script.*(\>|%3E) [NC,OR]
+    RewriteCond %{QUERY_STRING} GLOBALS(=|\[|\%[0-9A-Z]{0,2}) [OR]
+    RewriteCond %{QUERY_STRING} _REQUEST(=|\[|\%[0-9A-Z]{0,2}) [OR]
+    RewriteCond %{QUERY_STRING} proc/self/environ [OR]
+    RewriteCond %{QUERY_STRING} mosConfig_[a-zA-Z_]{1,21}(=|\%3D) [OR]
+    RewriteCond %{QUERY_STRING} base64_encode.*\(.*\) [OR]
+    RewriteCond %{QUERY_STRING} (\||\.|\.\.\/|~|`|<|>|\|) [NC,OR]
+    RewriteCond %{QUERY_STRING} (;|<|>|'|"|\)|%0A|%0D|%22|%27|%3C|%3E|%00).*(/\*|union|select|insert|drop|delete|update|cast|create|char|convert|alter|declare|script|set|md5|benchmark|encode) [NC]
+    RewriteRule .* - [F,L]
+</IfModule>
+
+# ============================================================================
+# COMPRESSAO GZIP
+# ============================================================================
+
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css text/javascript application/javascript application/json
+</IfModule>
+
+# ============================================================================
+# CONFIGURACAO PHP (Se mod_php disponivel)
+# ============================================================================
+
+<IfModule mod_php.c>
+    php_flag display_errors off
+    php_flag log_errors on
+    php_value session.cookie_httponly 1
+    php_value session.use_strict_mode 1
+</IfModule>
+
+# ============================================================================
+# PERMITIR ACESSO A ARQUIVOS ESPECIFICOS
+# ============================================================================
+
+# Permite que estes arquivos sejam acessados diretamente
+<FilesMatch "^(login|logout|admin|proxy|verificar)\.php$">
+    Order Allow,Deny
+    Allow from all
+</FilesMatch>
+
+# ============================================================================
+# REDIRECIONAMENTO PADRAO
+# ============================================================================
+
+# Redireciona index para login
+<IfModule mod_rewrite.c>
+    RewriteCond %{REQUEST_URI} ^/?$
+    RewriteRule ^$ /login.php [L,R=302]
+</IfModule>
+
+# ============================================================================
+# LIMITE DE UPLOAD (Seguranca)
+# ============================================================================
+
+<IfModule mod_php.c>
+    php_value upload_max_filesize 10M
+    php_value post_max_size 10M
+    php_value max_execution_time 30
+    php_value max_input_time 30
+</IfModule>

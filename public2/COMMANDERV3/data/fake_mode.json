@@ -1,0 +1,101 @@
+{
+    "enabled": true,
+    "updated_at": "2026-05-10 00:14:04",
+    "campaigns_config": [
+        {
+            "name": "ESC 2 CAMP PUB F ID 25\/54 PROD 02",
+            "percent": 17
+        },
+        {
+            "name": "ESC 3 CAMP PUB F ID 25\/54 PROD 02",
+            "percent": 27
+        },
+        {
+            "name": "ESC 6 CAMP PUB F ID 25\/54 PROD 02",
+            "percent": 17
+        },
+        {
+            "name": "ESC 9 CAMP PUB F ID 25\/54 PROD 02",
+            "percent": 23
+        },
+        {
+            "name": "ESC 12 CAMP PUB F ID 25\/54 PROD 02",
+            "percent": 20
+        }
+    ],
+    "gateways_config": [
+        {
+            "name": "bynet",
+            "percent": 100
+        }
+    ],
+    "metrics": {
+        "total_paid": 16031.78,
+        "total_pending": 14512.18,
+        "total_refunded": 0,
+        "paid_count": 422,
+        "pending_count": 382,
+        "refunded_count": 0,
+        "avg_ticket": 37.99,
+        "conversion_rate": 39
+    },
+    "campaigns": [
+        {
+            "name": "ESC 2 CAMP PUB F ID 25\/54 PROD 02",
+            "paid": 2735.28,
+            "pending": 2469.35,
+            "refunded": 0,
+            "paid_count": 72,
+            "pending_count": 65,
+            "refunded_count": 0
+        },
+        {
+            "name": "ESC 3 CAMP PUB F ID 25\/54 PROD 02",
+            "paid": 4330.860000000001,
+            "pending": 3912.9700000000003,
+            "refunded": 0,
+            "paid_count": 114,
+            "pending_count": 103,
+            "refunded_count": 0
+        },
+        {
+            "name": "ESC 6 CAMP PUB F ID 25\/54 PROD 02",
+            "paid": 2735.28,
+            "pending": 2469.35,
+            "refunded": 0,
+            "paid_count": 72,
+            "pending_count": 65,
+            "refunded_count": 0
+        },
+        {
+            "name": "ESC 9 CAMP PUB F ID 25\/54 PROD 02",
+            "paid": 3685.03,
+            "pending": 3343.1200000000003,
+            "refunded": 0,
+            "paid_count": 97,
+            "pending_count": 88,
+            "refunded_count": 0
+        },
+        {
+            "name": "ESC 12 CAMP PUB F ID 25\/54 PROD 02",
+            "paid": 3191.1600000000003,
+            "pending": 2887.2400000000002,
+            "refunded": 0,
+            "paid_count": 84,
+            "pending_count": 76,
+            "refunded_count": 0
+        }
+    ],
+    "by_gateway": {
+        "bynet": {
+            "paid": 16031.78,
+            "pending": 14512.18,
+            "refunded": 0,
+            "total": 30543.96,
+            "count": 804,
+            "paid_count": 422,
+            "pending_count": 382,
+            "refunded_count": 0
+        }
+    }
+}

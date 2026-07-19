@@ -1,0 +1,36 @@
+{
+    "pixel353on@outlook.com": {
+        "facebook": {
+            "id": "",
+            "token": "",
+            "event": "Purchase",
+            "enabled": false
+        },
+        "google": {
+            "id": "",
+            "label": "",
+            "enabled": false
+        },
+        "tiktok": {
+            "id": "D83ADF3C77U9FQKB6HM0",
+            "token": "c2bd691fa92bc42036ca96e43a583534ff8f0f5c",
+            "event": "CompletePayment",
+            "enabled": true
+        },
+        "taboola": {
+            "id": "",
+            "event": "purchase",
+            "enabled": false
+        },
+        "outbrain": {
+            "id": "",
+            "event": "purchase",
+            "enabled": false
+        },
+        "kwai": {
+            "id": "",
+            "token": "",
+            "enabled": false
+        }
+    }
+}
