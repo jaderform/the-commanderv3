@@ -166,10 +166,9 @@ function commanderSaveDomains($domains) {
 // INTEGRAÇÃO COM SISTEMA DE LOGIN DA RAIZ
 // ============================================
 
-// Inclui o sistema de protecao da raiz
-// Isso verifica se o usuario esta logado, se o dispositivo eh autorizado, etc.
-// Caminho para o proteger.php na raiz (public_html)
-require_once dirname(__DIR__) . '/proteger.php'; // ../proteger.php
+// Inclui o sistema de protecao (login standalone do proprio COMMANDER).
+// Isso verifica se o usuario esta logado e popula $GLOBALS['usuario_logado'].
+require_once __DIR__ . '/proteger.php';
 
 // Agora temos acesso a $GLOBALS['usuario_logado'] com:
 // - email, nome, eh_admin, utm_cloaker_ativo, expira_em
@@ -213,6 +212,12 @@ $loginError = '';
 $usuarioLogado = $usuario;
 $currentUserId = $usuarioLogado['email'] ?? 'default';
 $isAdmin = $usuarioLogado['eh_admin'] ?? false;
+
+// Usado pelo front-end (JS) para saber quem esta logado.
+$loggedUser = [
+    'username' => $usuarioLogado['username'] ?? ($usuarioLogado['email'] ?? 'default'),
+    'is_admin' => $isAdmin,
+];
 
 // Processa logout - redireciona para logout da raiz
 if (isset($_GET['logout'])) {
@@ -1060,7 +1065,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;b
             "nl":["Controleren of de site veilig is","Dit duurt slechts enkele seconden..."],
             "ru":["Проверка безопасности сайта","Это займет всего несколько секунд..."],
             "tr":["Sitenin guvenli olup olmadigi kontrol ediliyor","Bu yalnizca birkac saniye surecektir..."],
-            "ar":["جار التحقق من امان الموقع","لن يستغرق هذا سوى بضع ثوان..."],
+            "ar":["جار التحقق من امان الموق��","لن يستغرق هذا سوى بضع ثوان..."],
             "ja":["サイトの安全性を確認しています","これには数秒しかかかりません..."],
             "zh":["正在检查网站是否安全","这只需要几秒钟..."]
         };
