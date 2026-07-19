@@ -534,28 +534,6 @@ if ($isLoggedIn && isset($_POST['ajax_action'])) {
             jsonResponse(['success' => true]);
             break;
             
-        case 'download_tracker':
-            $campaignId = $_POST['campaign_id'] ?? '';
-            $campaign = getCampaignById($campaignId);
-            
-            if (!$campaign) {
-                jsonResponse(['error' => 'Campanha nao encontrada'], 404);
-            }
-            
-            // Verifica permissao
-            if (!$isAdmin && ($campaign['user_id'] ?? '') !== $currentUserId) {
-                jsonResponse(['error' => 'Sem permissao para baixar esta campanha'], 403);
-            }
-            
-            $trackerCode = generateTrackerCode($campaign);
-            jsonResponse(['code' => $trackerCode, 'filename' => 'index.php']);
-            break;
-            
-        case 'download_htaccess':
-            $htaccessCode = generateHtaccessCode();
-            jsonResponse(['code' => $htaccessCode, 'filename' => '.htaccess']);
-            break;
-            
         // ============================================
         // V3 - GATEWAYS E TRANSACOES
         // ============================================
@@ -3311,7 +3289,62 @@ HTACCESS;
                         <div id="commander-ip" style="font-size:16px;font-weight:600;color:var(--light);margin-top:4px;">-</div>
                     </div>
                     <div style="flex:1;min-width:220px;font-size:13px;color:var(--muted);line-height:1.5;">
-                        Cada domínio abaixo vem das suas campanhas. Depois de apontar o DNS, adicione o domínio como alias na sua hospedagem apontando para esta pasta e clique em <strong>Verificar</strong>.
+                        Cada domínio abaixo vem das suas campanhas. Depois de apontar o DNS, adicione o domínio na Hostinger apontando para a pasta do COMMANDER e clique em <strong>Verificar</strong>.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Primeiros passos -->
+            <div class="card" style="margin-bottom:20px;">
+                <div class="card-header">
+                    <h3 class="card-title"><i class="fas fa-list-check" style="margin-right:8px;color:#a855f7;"></i>Como colocar um domínio no ar (4 passos)</h3>
+                </div>
+                <div class="card-body">
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;">
+                        <!-- Passo 1 -->
+                        <div style="padding:16px;background:var(--surface);border-radius:10px;border-top:3px solid #a855f7;">
+                            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+                                <span style="background:#a855f7;color:#fff;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;">1</span>
+                                <strong style="color:var(--light);">Registre 1 domínio</strong>
+                            </div>
+                            <p style="color:var(--muted);font-size:13px;line-height:1.6;margin:0;">
+                                Use <strong>um domínio novo por campanha</strong> (ex: <code>oferta1.com</code>). Ele será o link do anúncio. As páginas Safe e Offer NÃO precisam de domínio &mdash; são só URLs no formulário.
+                            </p>
+                        </div>
+                        <!-- Passo 2 -->
+                        <div style="padding:16px;background:var(--surface);border-radius:10px;border-top:3px solid #f59e0b;">
+                            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+                                <span style="background:#f59e0b;color:#fff;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;">2</span>
+                                <strong style="color:var(--light);">Aponte o DNS</strong>
+                            </div>
+                            <p style="color:var(--muted);font-size:13px;line-height:1.6;margin:0;">
+                                Na Cloudflare, crie um registro <strong>A</strong> para o IP <code id="steps-ip">do servidor</code> com a nuvem <strong style="color:#f59e0b;">CINZA (DNS only)</strong> &mdash; nunca laranja/Proxied.
+                            </p>
+                        </div>
+                        <!-- Passo 3 -->
+                        <div style="padding:16px;background:var(--surface);border-radius:10px;border-top:3px solid #3b82f6;">
+                            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+                                <span style="background:#3b82f6;color:#fff;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;">3</span>
+                                <strong style="color:var(--light);">Adicione na Hostinger</strong>
+                            </div>
+                            <p style="color:var(--muted);font-size:13px;line-height:1.6;margin:0;">
+                                Adicione o domínio como site com a <strong>pasta raiz</strong> apontando para <code>public_html/COMMANDERV3</code> (NÃO deixe <code>public_html</code>). Depois, emita o <strong>SSL</strong> dele.
+                            </p>
+                        </div>
+                        <!-- Passo 4 -->
+                        <div style="padding:16px;background:var(--surface);border-radius:10px;border-top:3px solid var(--success);">
+                            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+                                <span style="background:var(--success);color:#fff;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;">4</span>
+                                <strong style="color:var(--light);">Crie a campanha</strong>
+                            </div>
+                            <p style="color:var(--muted);font-size:13px;line-height:1.6;margin:0;">
+                                Em <strong>Campanhas</strong>, crie a campanha e preencha o campo <strong>Domínio da Campanha</strong> com esse domínio. O motor é gerado ao salvar. Volte aqui e clique em <strong>Verificar</strong>.
+                            </p>
+                        </div>
+                    </div>
+                    <div style="margin-top:16px;padding:12px 14px;background:var(--overlay);border-radius:8px;font-size:12.5px;color:var(--muted);line-height:1.6;">
+                        <i class="fas fa-circle-info" style="color:#a855f7;margin-right:6px;"></i>
+                        Você pode apontar <strong>quantos domínios quiser</strong> &mdash; todos para a mesma pasta <code>COMMANDERV3</code>. Cada campanha usa o seu próprio domínio, e o COMMANDER identifica automaticamente qual campanha servir.
                     </div>
                 </div>
             </div>
@@ -4199,74 +4232,22 @@ HTACCESS;
         <div id="page-downloads" class="page" style="display:none;">
             <div class="page-header">
                 <div>
-                    <h1 class="page-title">Downloads e Configuracao</h1>
-                    <p class="page-subtitle">Baixe os arquivos e configure seus anuncios</p>
+                    <h1 class="page-title">Configuracao de Anuncios</h1>
+                    <p class="page-subtitle">Gere as URLs com parametros UTM para suas campanhas</p>
                 </div>
             </div>
             
-            <div class="grid-2">
-                <div class="card">
-                    <div class="card-header">
-                        <h3 class="card-title"><i class="fas fa-code" style="margin-right:8px;color:var(--primary);"></i>Tracker (index.php)</h3>
-                    </div>
-                    <div class="card-body">
-                        <p style="color:var(--muted);margin-bottom:16px;">
-                            Selecione uma campanha para gerar o tracker personalizado.
+            <!-- Aviso: nao precisa mais baixar tracker -->
+            <div class="card" style="margin-bottom:20px;border-left:4px solid var(--success);">
+                <div class="card-body" style="display:flex;gap:14px;align-items:flex-start;">
+                    <i class="fas fa-circle-check" style="color:var(--success);font-size:22px;margin-top:2px;"></i>
+                    <div>
+                        <strong style="color:var(--light);">Nao e mais necessario baixar arquivos.</strong>
+                        <p style="color:var(--muted);font-size:14px;margin-top:6px;line-height:1.6;margin-bottom:0;">
+                            O cloaking agora roda direto no COMMANDER. Basta apontar o dominio da campanha para o servidor na aba
+                            <a href="#domains" onclick="switchPage('domains')" style="color:var(--primary);font-weight:600;">Dominios</a>
+                            e criar a campanha. O motor e gerado automaticamente ao salvar &mdash; sem upload de <code>index.php</code> ou <code>.htaccess</code>.
                         </p>
-                        <div class="form-group">
-                            <select id="download-campaign" class="form-control">
-                                <option value="">Selecione uma campanha...</option>
-                            </select>
-                        </div>
-                        <button class="btn btn-primary" onclick="downloadTracker()">
-                            <i class="fas fa-download"></i> Baixar Tracker
-                        </button>
-                    </div>
-                </div>
-                
-                <div class="card">
-                    <div class="card-header">
-                        <h3 class="card-title"><i class="fas fa-cog" style="margin-right:8px;color:var(--warning);"></i>.htaccess</h3>
-                    </div>
-                    <div class="card-body">
-                        <p style="color:var(--muted);margin-bottom:16px;">
-                            Arquivo de configuracao Apache para o dominio do tracker.
-                        </p>
-                        <button class="btn btn-primary" onclick="downloadHtaccess()">
-                            <i class="fas fa-download"></i> Baixar .htaccess
-                        </button>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Instrucoes de Instalacao -->
-            <div class="card" style="margin-top:20px;">
-                <div class="card-header">
-                    <h3 class="card-title"><i class="fas fa-book" style="margin-right:8px;color:var(--success);"></i>Como Instalar o Tracker</h3>
-                </div>
-                <div class="card-body">
-                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:20px;">
-                        <div style="padding:15px;background:var(--surface);border-radius:8px;">
-                            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
-                                <span style="background:var(--primary);color:white;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:600;">1</span>
-                                <strong>Baixe os arquivos</strong>
-                            </div>
-                            <p style="color:var(--muted);font-size:14px;">Selecione sua campanha e baixe o <code>index.php</code> e o <code>.htaccess</code></p>
-                        </div>
-                        <div style="padding:15px;background:var(--surface);border-radius:8px;">
-                            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
-                                <span style="background:var(--primary);color:white;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:600;">2</span>
-                                <strong>Faca upload</strong>
-                            </div>
-                            <p style="color:var(--muted);font-size:14px;">Envie ambos os arquivos para a <strong>raiz</strong> do seu dominio de tracking via FTP ou Gerenciador de Arquivos</p>
-                        </div>
-                        <div style="padding:15px;background:var(--surface);border-radius:8px;">
-                            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
-                                <span style="background:var(--primary);color:white;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:600;">3</span>
-                                <strong>Configure o anuncio</strong>
-                            </div>
-                            <p style="color:var(--muted);font-size:14px;">Use a URL com os parametros UTM conforme a plataforma (veja abaixo)</p>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -4280,7 +4261,7 @@ HTACCESS;
                     <!-- Campo de dominio -->
                     <div style="margin-bottom:25px;padding:20px;background:linear-gradient(135deg,var(--primary-alpha) 0%,var(--secondary-alpha) 100%);border-radius:12px;border:1px solid var(--primary);">
                         <label style="display:block;margin-bottom:10px;font-weight:600;color:var(--light);">
-                            <i class="fas fa-globe" style="margin-right:8px;"></i>Digite seu dominio de tracking:
+                            <i class="fas fa-globe" style="margin-right:8px;"></i>Digite o dominio da campanha:
                         </label>
                         <input type="text" id="utm-domain" class="form-control" placeholder="meusite.com.br" style="font-size:18px;padding:15px;background:var(--darker);border:2px solid var(--primary);">
                         <p style="color:var(--muted);font-size:12px;margin-top:8px;">
@@ -4427,9 +4408,9 @@ HTACCESS;
                 <div class="card-body">
                     <ul style="color:var(--muted);padding-left:20px;line-height:2;">
                         <li><strong style="color:var(--light);">Sempre teste primeiro:</strong> Adicione seu IP na Whitelist e teste se esta redirecionando corretamente</li>
-                        <li><strong style="color:var(--light);">SSL obrigatorio:</strong> Use HTTPS no seu dominio de tracking para evitar bloqueios</li>
+                        <li><strong style="color:var(--light);">SSL obrigatorio:</strong> Garanta o HTTPS do dominio de campanha na Hostinger para evitar bloqueios</li>
                         <li><strong style="color:var(--light);">White page valida:</strong> Use uma pagina real e relevante (blog, artigo) como white page</li>
-                        <li><strong style="color:var(--light);">Nao edite o tracker:</strong> Nao modifique o index.php gerado, pois pode quebrar a conexao com a API</li>
+                        <li><strong style="color:var(--light);">DNS only na Cloudflare:</strong> Deixe o dominio da campanha com a nuvem CINZA (sem proxy) para o cloaking funcionar</li>
                         <li><strong style="color:var(--light);">Monitore os logs:</strong> Verifique regularmente os logs de bots para ajustar a protecao</li>
                     </ul>
                 </div>
@@ -4982,9 +4963,15 @@ document.querySelectorAll('.nav-link[data-page]').forEach(link => {
         if (page === 'logs') loadLogs();
         if (page === 'ips') loadIPs();
         if (page === 'forcewhite') loadForceWhite();
-        if (page === 'downloads') loadCampaignsForDownload();
+        if (page === 'downloads') updateAllUTMs();
     });
 });
+
+// Navega para uma pagina programaticamente (reutiliza o clique do menu)
+function switchPage(page) {
+    const link = document.querySelector('.nav-link[data-page="' + page + '"]');
+    if (link) link.click();
+}
 
 // Toast
 function showToast(message, type = 'success') {
@@ -6147,6 +6134,8 @@ async function loadDomains() {
     document.getElementById('commander-ip').textContent = commanderIp || '-';
     document.getElementById('dns-a-value').textContent = commanderIp || '(IP do servidor)';
     document.getElementById('dns-cname-value').textContent = commanderHost || '(host do commander)';
+    const stepsIp = document.getElementById('steps-ip');
+    if (stepsIp) stepsIp.textContent = commanderIp || 'do servidor';
 
     renderDomains();
 }
@@ -6452,48 +6441,6 @@ async function unblockIP(ip) {
     if (result?.success) {
         showToast('IP desbloqueado!');
         loadIPs();
-    }
-}
-
-// Downloads
-async function loadCampaignsForDownload() {
-    const result = await apiCall('get_campaigns');
-    if (!result || !result.campaigns) return;
-    
-    const select = document.getElementById('download-campaign');
-    select.innerHTML = '<option value="">Selecione uma campanha...</option>' + 
-        result.campaigns.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
-}
-
-async function downloadTracker() {
-    const campaignId = document.getElementById('download-campaign').value;
-    if (!campaignId) {
-        showToast('Selecione uma campanha', 'warning');
-        return;
-    }
-    
-    const result = await apiCall('download_tracker', { campaign_id: campaignId });
-    
-    if (result?.code) {
-        currentCode = result.code;
-        currentFilename = result.filename;
-        document.getElementById('code-modal-title').textContent = 'Tracker - ' + result.filename;
-        document.getElementById('code-content').textContent = result.code;
-        openModal('code-modal');
-    } else {
-        showToast('Erro ao gerar tracker', 'error');
-    }
-}
-
-async function downloadHtaccess() {
-    const result = await apiCall('download_htaccess');
-    
-    if (result?.code) {
-        currentCode = result.code;
-        currentFilename = result.filename;
-        document.getElementById('code-modal-title').textContent = result.filename;
-        document.getElementById('code-content').textContent = result.code;
-        openModal('code-modal');
     }
 }
 
