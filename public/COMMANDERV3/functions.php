@@ -36,15 +36,48 @@ function readJsonFile($file, $default = []) {
 
 /**
  * Escreve arquivo JSON com lock
+ *
+ * IMPORTANTE: a escrita e feita de forma ATOMICA (arquivo temporario + rename).
+ * O rename() precisa apenas de permissao de escrita no DIRETORIO, nao no arquivo
+ * de destino. Isso resolve o caso comum em que o usuario deu permissao apenas nas
+ * PASTAS, mas o arquivo campaigns.json (que ja vem versionado) continua pertencendo
+ * a outro usuario / sem permissao de grupo, fazendo a gravacao falhar silenciosamente.
  */
 function writeJsonFile($file, $data) {
     $dir = dirname($file);
     if (!is_dir($dir)) {
-        mkdir($dir, 0755, true);
+        @mkdir($dir, 0775, true);
     }
-    
+
+    // Se nao conseguir codificar, NAO grava nada (evita truncar/zerar o arquivo existente)
     $json = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
-    return file_put_contents($file, $json, LOCK_EX) !== false;
+    if ($json === false) {
+        error_log('writeJsonFile: json_encode falhou para ' . $file . ' - ' . json_last_error_msg());
+        return false;
+    }
+
+    // Grava primeiro em arquivo temporario no mesmo diretorio e depois faz rename atomico.
+    $tmp = @tempnam($dir, '.tmp_json_');
+    if ($tmp !== false) {
+        if (@file_put_contents($tmp, $json, LOCK_EX) !== false) {
+            @chmod($tmp, 0664);
+            if (@rename($tmp, $file)) {
+                return true;
+            }
+        }
+        // Falhou o caminho atomico: limpa o temporario
+        @unlink($tmp);
+    }
+
+    // Fallback: tenta gravar direto no arquivo (caso o arquivo ja seja gravavel)
+    if (is_file($file) && !is_writable($file)) {
+        @chmod($file, 0664);
+    }
+    $ok = @file_put_contents($file, $json, LOCK_EX) !== false;
+    if (!$ok) {
+        error_log('writeJsonFile: nao foi possivel gravar ' . $file . ' (verifique permissoes do diretorio ' . $dir . ')');
+    }
+    return $ok;
 }
 
 /**
